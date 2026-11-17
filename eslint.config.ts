@@ -12,6 +12,8 @@ export default [
             '.claude/**',
             '.not-committed/**',
             '.wrangler/**',
+            'test-results/**',
+            'playwright-report/**',
         ],
     },
     {

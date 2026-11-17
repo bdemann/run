@@ -6,6 +6,7 @@
     "exclude": [
         "./configs/",
         "./coverage/",
+        "./e2e/",
         "./dist-*/",
         "./dist/",
         "./node_modules/",
