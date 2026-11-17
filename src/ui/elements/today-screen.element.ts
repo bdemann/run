@@ -4,6 +4,7 @@ import {advise, suggestionHeadings, suggestions, type Advice} from '../../data/a
 import {describeClothing} from '../../data/clothing.js';
 import {formatElapsed} from '../../data/elapsed.js';
 import {feelingShortLabels} from '../../data/feelings.js';
+import {parseNumber} from '../../data/parse-number.js';
 import {type ActiveRun, type UserData} from '../../data/shapes.js';
 import {type Weather} from '../../data/weather.js';
 import {goTo} from '../../router.js';
@@ -43,13 +44,10 @@ function renderAdvice(advice: Readonly<Advice>, hasLocation: boolean): HtmlInter
     if (advice.kind === 'no-temperature') {
         return hasLocation
             ? html`
-                  <p class="muted">Waiting on the temperature…</p>
+                  <p class="muted">Type the temperature above, or wait for it to load.</p>
               `
             : html`
-                  <p>Set your location in Settings so the app can look up the temperature.</p>
-                  <button class="link" ${listen('click', () => goTo(['settings']))}>
-                      Open Settings
-                  </button>
+                  <p>Type the temperature above to get advice.</p>
               `;
     } else if (advice.kind === 'too-cold') {
         return html`
@@ -110,6 +108,7 @@ export const TodayScreen = defineElement()({
         ${screenStyles}
 
         .weather {
+            flex-wrap: wrap;
             display: flex;
             align-items: center;
             gap: 16px;
@@ -120,6 +119,19 @@ export const TodayScreen = defineElement()({
             font-weight: 700;
             line-height: 1;
             font-variant-numeric: tabular-nums;
+        }
+
+        .open-settings {
+            flex-basis: 100%;
+        }
+
+        .manual-temperature {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .manual-temperature input {
+            font-size: 20px;
         }
 
         .weather-details {
@@ -159,6 +171,7 @@ export const TodayScreen = defineElement()({
             data: getRunStore().getData() as Readonly<UserData>,
             weather: undefined as Weather | undefined,
             weatherError: '',
+            typedTemperature: '',
             loadingWeather: false,
             starting: false,
             nowMs: Date.now(),
@@ -244,6 +257,7 @@ export const TodayScreen = defineElement()({
                 starting: true,
             });
             let weather = state.weather;
+            const typedTemperatureF = parseNumber(state.typedTemperature);
             if (location) {
                 try {
                     weather = await freshWeather(location);
@@ -253,7 +267,7 @@ export const TodayScreen = defineElement()({
             }
             const activeRun: ActiveRun = {
                 startedAt: getNowInIsoString(),
-                temperatureF: weather?.temperatureF ?? null,
+                temperatureF: weather?.temperatureF ?? typedTemperatureF,
                 feelsLikeF: weather?.feelsLikeF ?? null,
                 windMph: weather?.windMph ?? null,
             };
@@ -297,19 +311,45 @@ export const TodayScreen = defineElement()({
             `;
         }
 
+        const typedTemperatureF = parseNumber(state.typedTemperature) ?? undefined;
+        const temperatureF = state.weather?.temperatureF ?? typedTemperatureF;
         const advice = advise({
             runs: data.runs,
-            temperatureF: state.weather?.temperatureF,
+            temperatureF,
         });
 
         return html`
             <div class="card weather">
-                <div class="temperature" aria-label="Temperature">
-                    ${round(state.weather?.temperatureF)}°
-                </div>
+                ${state.weather
+                    ? html`
+                          <div class="temperature" aria-label="Temperature">
+                              ${round(state.weather.temperatureF)}°
+                          </div>
+                      `
+                    : html`
+                          <label class="manual-temperature">
+                              Temperature °F
+                              <input
+                                  type="text"
+                                  inputmode="numeric"
+                                  autocomplete="off"
+                                  .value=${state.typedTemperature}
+                                  ${listen('input', (event) => {
+                                      updateState({
+                                          typedTemperature: (event.target as HTMLInputElement)
+                                              .value,
+                                      });
+                                  })}
+                              />
+                          </label>
+                      `}
                 <div class="weather-details">
-                    <div>Feels like ${round(state.weather?.feelsLikeF)}°</div>
-                    <div>Wind ${round(state.weather?.windMph)} mph</div>
+                    ${state.weather
+                        ? html`
+                              <div>Feels like ${round(state.weather.feelsLikeF)}°</div>
+                              <div>Wind ${round(state.weather.windMph)} mph</div>
+                          `
+                        : nothing}
                     <div class="muted">
                         ${state.weatherError
                             ? html`
@@ -318,6 +358,16 @@ export const TodayScreen = defineElement()({
                             : (location?.name ?? 'No location set')}
                     </div>
                 </div>
+                ${location
+                    ? nothing
+                    : html`
+                          <button
+                              class="link open-settings"
+                              ${listen('click', () => goTo(['settings']))}
+                          >
+                              Open Settings to set your location
+                          </button>
+                      `}
                 ${location
                     ? html`
                           <button
