@@ -3,6 +3,7 @@ import {css, defineElement, html, listen, nothing} from 'element-vir';
 import {addClothingItem, clothingGroups, prefillForTemperature} from '../../data/clothing.js';
 import {minutesSince} from '../../data/elapsed.js';
 import {feelingLabels, feelingOrder, type Feeling} from '../../data/feelings.js';
+import {parseNumber} from '../../data/parse-number.js';
 import {type Run} from '../../data/shapes.js';
 import {goTo} from '../../router.js';
 import {inputValueToIso, isoToInputValue} from '../dates.js';
@@ -28,15 +29,6 @@ type Draft = {
 
 function numberText(value: number | null | undefined): string {
     return value == undefined ? '' : String(Math.round(value));
-}
-
-function parseNumber(text: string): number | null {
-    const trimmed = text.trim();
-    if (!trimmed) {
-        return null;
-    }
-    const value = Number(trimmed);
-    return Number.isFinite(value) ? value : null;
 }
 
 /** The form's starting values, and a note when they were filled in from a past run. */
