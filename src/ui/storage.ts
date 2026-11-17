@@ -1,6 +1,7 @@
 import {LocalStorageClient} from '@electrovir/local-storage-client';
 import {unknownShape} from 'object-shape-tester';
 import {createMemoryBackend, RunStore, type DocumentBackend} from '../data/run-store.js';
+import {diagnosticLog} from './diagnostics.js';
 
 /**
  * Everything is one small JSON document in localStorage. The shape is deliberately raw here:
@@ -21,7 +22,14 @@ function createLocalStorageBackend(): DocumentBackend {
             return localStorageClient.get.userData();
         },
         save(data) {
-            localStorageClient.set.userData(data);
+            try {
+                localStorageClient.set.userData(data);
+            } catch (error) {
+                diagnosticLog.log('storage-error', {
+                    step: 'save',
+                });
+                throw error;
+            }
         },
     };
 }
@@ -33,6 +41,9 @@ function createBrowserBackend(): DocumentBackend {
         backend.load();
         return backend;
     } catch {
+        diagnosticLog.log('storage-error', {
+            step: 'open',
+        });
         return createMemoryBackend();
     }
 }

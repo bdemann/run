@@ -7,6 +7,7 @@ import {parseNumber} from '../../data/parse-number.js';
 import {type Run} from '../../data/shapes.js';
 import {goTo} from '../../router.js';
 import {inputValueToIso, isoToInputValue} from '../dates.js';
+import {diagnosticLog} from '../diagnostics.js';
 import {getRunStore} from '../storage.js';
 import {screenStyles} from '../styles.js';
 import {getCachedWeather} from '../weather-client.js';
@@ -338,6 +339,9 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
                 run,
                 finishesActiveRun: inputs.mode === 'finish',
             });
+            if (inputs.mode === 'finish') {
+                diagnosticLog.log('run-finish');
+            }
             back();
         }
 

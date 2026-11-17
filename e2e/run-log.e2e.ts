@@ -244,3 +244,45 @@ test('falls back to the Worker when Open-Meteo is unreachable, then offers Retry
     ).toBeVisible();
     await expect(page.getByLabel('Temperature °F')).toBeVisible();
 });
+
+test('feedback on a problem attaches the diagnostic log, which records a blocked weather service', async ({
+    page,
+    allowedConsoleErrors,
+}) => {
+    allowedConsoleErrors.push('Failed to load resource');
+    await page.route('https://api.open-meteo.com/**', async (route) => {
+        await route.abort('timedout');
+    });
+    await page.route('**/api/weather?**', async (route) => {
+        await route.fulfill({
+            status: 502,
+            json: {
+                ok: false,
+                error: 'No weather source answered.',
+            },
+        });
+    });
+    await page.goto('/settings');
+    await page
+        .getByRole('button', {
+            name: 'Use my current location',
+        })
+        .click();
+    await expect(page.getByText(/Temperatures are for/)).toBeVisible();
+    await openTab(page, 'Today');
+    await page
+        .getByRole('button', {
+            name: 'Refresh temperature',
+        })
+        .click();
+    await expect(page.locator('.error')).toContainText("Couldn't get the weather right now");
+
+    await page.goto('/feedback');
+    await page.getByLabel('Problem').check();
+    await expect(page.getByLabel('Attach diagnostic logs')).toBeChecked();
+    await page.getByText('What will be sent').click();
+    const preview = page.locator('pre');
+    await expect(preview).toContainText('step=direct');
+    await expect(preview).toContainText('step=proxy');
+    await expect(preview).not.toContainText('40.01');
+});

@@ -15,6 +15,7 @@ import {type ActiveRun, type UserData} from '../../data/shapes.js';
 import {type Weather} from '../../data/weather.js';
 import {goTo} from '../../router.js';
 import {formatClockTime, formatRunDate} from '../dates.js';
+import {diagnosticLog} from '../diagnostics.js';
 import {getRunStore} from '../storage.js';
 import {screenStyles} from '../styles.js';
 import {fetchWeather, freshWeather, getCachedWeather} from '../weather-client.js';
@@ -293,6 +294,9 @@ export const TodayScreen = defineElement()({
                 windMph: weather?.windMph ?? null,
             };
             getRunStore().startRun(activeRun);
+            diagnosticLog.log('run-start', {
+                weather: weather ? 'yes' : 'no',
+            });
             updateState({
                 starting: false,
             });
@@ -324,6 +328,7 @@ export const TodayScreen = defineElement()({
                     ${listen('click', () => {
                         if (globalThis.confirm('Throw away this run?')) {
                             getRunStore().cancelRun();
+                            diagnosticLog.log('run-cancel');
                         }
                     })}
                 >

@@ -26,7 +26,7 @@
     },
     "dependencies": {
         "@augment-vir/common": "^32.2.4",
-        "@bdemann/app-kit": "0.2.2",
+        "@bdemann/app-kit": "0.3.0",
         "@electrovir/local-storage-client": "^0.1.1",
         "@sinclair/typebox": "0.34.52",
         "date-vir": "^9.1.1",

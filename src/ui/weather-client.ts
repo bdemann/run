@@ -9,6 +9,7 @@ import {
     type Weather,
     weatherProxyUrl,
 } from '../data/weather.js';
+import {diagnosticLog} from './diagnostics.js';
 
 /** Weather older than this is fetched again before a run starts. */
 export const weatherMaxAgeMs = 15 * 60_000;
@@ -26,32 +27,85 @@ export function getCachedWeather(location: Readonly<RunLocation>): CachedWeather
     return cached?.key === locationKey(location) ? cached : undefined;
 }
 
+/** A short, private reason for a failed fetch: never the URL, which holds coordinates. */
+function failureReason(error: unknown): string {
+    return error instanceof DOMException && error.name === 'TimeoutError' ? 'timeout' : 'network';
+}
+
 /** Open-Meteo straight from the browser. Gives up after 6 s: it is sometimes unreachable. */
 async function fetchDirect(location: Readonly<RunLocation>): Promise<Weather | undefined> {
+    const startMs = Date.now();
     try {
         const response = await fetch(forecastUrl(location), {
             signal: AbortSignal.timeout(6000),
         });
-        return response.ok ? parseForecast(await response.json()) : undefined;
-    } catch {
+        if (!response.ok) {
+            diagnosticLog.log('error', {
+                step: 'direct',
+                reason: `status-${response.status}`,
+            });
+            return undefined;
+        }
+        const weather = parseForecast(await response.json());
+        if (weather) {
+            diagnosticLog.log('weather-ok', {
+                source: 'direct',
+                ms: Date.now() - startMs,
+            });
+        } else {
+            diagnosticLog.log('error', {
+                step: 'direct',
+                reason: 'shape',
+            });
+        }
+        return weather;
+    } catch (error) {
+        diagnosticLog.log('error', {
+            step: 'direct',
+            reason: failureReason(error),
+        });
         return undefined;
     }
 }
 
 /** Our Worker, which tries Open-Meteo then the National Weather Service. May take a while. */
 async function fetchViaWorker(location: Readonly<RunLocation>): Promise<Weather | undefined> {
+    const startMs = Date.now();
     try {
         const response = await fetch(weatherProxyUrl(location), {
             signal: AbortSignal.timeout(20_000),
         });
         if (!response.ok) {
+            diagnosticLog.log('error', {
+                step: 'proxy',
+                reason: `status-${response.status}`,
+            });
             return undefined;
         }
         const body: unknown = await response.json();
-        return body && typeof body === 'object' && 'weather' in body
-            ? parseProxyWeather(body.weather)
-            : undefined;
-    } catch {
+        const weather =
+            body && typeof body === 'object' && 'weather' in body
+                ? parseProxyWeather(body.weather)
+                : undefined;
+        if (weather) {
+            const source =
+                body && typeof body === 'object' && 'source' in body ? String(body.source) : '';
+            diagnosticLog.log('weather-ok', {
+                source: /^[a-z-]{1,20}$/.test(source) ? source : 'proxy',
+                ms: Date.now() - startMs,
+            });
+        } else {
+            diagnosticLog.log('error', {
+                step: 'proxy',
+                reason: 'shape',
+            });
+        }
+        return weather;
+    } catch (error) {
+        diagnosticLog.log('error', {
+            step: 'proxy',
+            reason: failureReason(error),
+        });
         return undefined;
     }
 }
@@ -99,6 +153,10 @@ export function locateDevice(): Promise<RunLocation> {
                 resolve(locationFromCoordinates(position.coords));
             },
             (error) => {
+                diagnosticLog.log('error', {
+                    step: 'geolocation',
+                    code: error.code,
+                });
                 reject(new Error(error.message || 'Location was not shared.'));
             },
             {
