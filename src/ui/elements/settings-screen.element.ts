@@ -1,5 +1,6 @@
 import {getNowInIsoString} from 'date-vir';
 import {css, defineElement, html, listen, nothing} from 'element-vir';
+import {removeClothingItem} from '../../data/clothing.js';
 import {type RunLocation, type UserData} from '../../data/shapes.js';
 import {exportFilename} from '../../data/user-data.js';
 import {getRunStore} from '../storage.js';
@@ -52,6 +53,19 @@ export const SettingsScreen = defineElement()({
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
+        }
+
+        .custom-items li {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .custom-items li button {
+            width: auto;
+            min-width: 44px;
+            min-height: 44px;
         }
 
         .button-like {
@@ -199,6 +213,38 @@ export const SettingsScreen = defineElement()({
                       </ul>
                   `
                 : nothing}
+
+            <h2>Your clothing items</h2>
+            ${state.data.settings.customClothing.length
+                ? html`
+                      <ul class="custom-items">
+                          ${state.data.settings.customClothing.map((item) => {
+                              return html`
+                                  <li>
+                                      <span>${item}</span>
+                                      <button
+                                          aria-label="Remove ${item}"
+                                          ${listen('click', () => {
+                                              store.setCustomClothing(
+                                                  removeClothingItem({
+                                                      customClothing:
+                                                          state.data.settings.customClothing,
+                                                      item,
+                                                  }),
+                                              );
+                                          })}
+                                      >
+                                          Remove
+                                      </button>
+                                  </li>
+                              `;
+                          })}
+                      </ul>
+                      <p class="muted">Removing an item does not change past runs.</p>
+                  `
+                : html`
+                      <p class="muted">Items you add in the run form show up here.</p>
+                  `}
 
             <h2>Your data</h2>
             <p class="muted">
