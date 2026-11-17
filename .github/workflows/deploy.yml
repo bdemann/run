@@ -4,6 +4,8 @@ on:
     push:
         branches:
             - main
+    # Lets a deploy be started by hand: Actions tab, or `gh workflow run deploy`.
+    workflow_dispatch:
 
 concurrency:
     group: deploy
