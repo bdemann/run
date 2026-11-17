@@ -83,8 +83,7 @@ function renderAdvice(
         you wore
         <strong>${describeClothing(run.clothing)}</strong>
         and felt
-        <strong>${feelingShortLabels[run.feeling]}</strong>
-        .
+        <strong>${feelingShortLabels[run.feeling]}.</strong>
     `;
     const conditions = describeConditionsDifference({
         reference: run,
@@ -352,8 +351,8 @@ export const TodayScreen = defineElement()({
                           <label class="manual-temperature">
                               Temperature °F
                               <input
-                                  type="text"
-                                  inputmode="numeric"
+                                  type="number"
+                                  step="any"
                                   autocomplete="off"
                                   .value=${state.typedTemperature}
                                   ${listen('input', (event) => {

@@ -71,6 +71,8 @@ Never run remote wrangler commands (`--remote`, `deploy`, `secret put`); CI depl
 
 -   **Android first** (Benjamin's phone, Chrome); iPhone must work acceptably but does not drive
     design.
+-   Temperature inputs are `type="number"` with no `inputmode`: Android's numeric keypad has no
+    minus key, and it gets below 0°F.
 -   Units are °F and mph everywhere (the person is in the US). Temperatures match on
     `Math.round`.
 -   Colors only through the `--run-*` CSS vars in `www-static/index.css` (light and dark). The
