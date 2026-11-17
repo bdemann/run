@@ -3,6 +3,7 @@ import {css, defineElement, html, listen, type HtmlInterpolation} from 'element-
 import {appName, repoUrl} from '../../data/app-info.js';
 import {editRunId, goTo, router, screenForRoute, type RunRoute, type Screen} from '../../router.js';
 import {buildInfo} from '../build-info.js';
+import {diagnosticLog} from '../diagnostics.js';
 import {
     feedbackContactStorageKey,
     feedbackDraftStorageKey,
@@ -10,10 +11,13 @@ import {
     rememberPageBeforeFeedback,
     sendFeedback,
 } from '../send-feedback.js';
+import {getRunStore} from '../storage.js';
 import {HistoryScreen} from './history-screen.element.js';
 import {RunFormScreen} from './run-form-screen.element.js';
 import {SettingsScreen} from './settings-screen.element.js';
 import {TodayScreen} from './today-screen.element.js';
+
+diagnosticLog.captureErrors();
 
 /** Add a tab here (id, label, href, icon path, route) and it shows up in the bottom nav. */
 const navTabs = [
@@ -106,6 +110,17 @@ function renderScreen(route: Readonly<RunRoute>): HtmlInterpolation {
                 contactFields: true,
                 contactStorageKey: feedbackContactStorageKey,
                 honeypot: true,
+                diagnostics: diagnosticLog.feedbackDiagnostics({
+                    info() {
+                        const data = getRunStore().getData();
+                        return {
+                            runs: data.runs.length,
+                            locationSet: !!data.settings.location,
+                            activeRun: !!data.activeRun,
+                        };
+                    },
+                    note: 'App events and errors only. No locations or run notes.',
+                }),
             })}></${FeedbackPage}>
         `;
     } else {

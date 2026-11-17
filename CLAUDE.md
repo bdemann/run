@@ -66,6 +66,10 @@ Never run remote wrangler commands (`--remote`, `deploy`, `secret put`); CI depl
     localStorage via `@electrovir/local-storage-client`. `weather-client.ts` does the fetching.
 -   `src/router.ts`: spa-router-vir routes `/`, `/finish`, `/log`, `/runs`, `/runs/:id`,
     `/settings`, `/about`, `/feedback`.
+-   `src/ui/diagnostics.ts`: the app-kit diagnostic log (`diagnosticLog.log(event, details)`), attached to
+    feedback when the person ticks "Attach diagnostic logs". **Privacy rule: log event names and error
+    kinds only (`step`, `reason`, `ms`, status codes). Never coordinates, place names, notes or
+    clothing.** Events: `weather-ok`, `error`, `storage-error`, `run-start`, `run-finish`, `run-cancel`.
 -   `src/worker/`: Cloudflare Worker: https redirect, `/api/health` (About page), `/api/feedback`
     (app-kit `handleFeedbackRequest`, no sign-in, honeypot on), security headers (CSP allows
     `connect-src` to Open-Meteo only), static assets. Run data never reaches the server.
