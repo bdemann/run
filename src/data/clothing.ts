@@ -157,3 +157,11 @@ export function prefillForTemperature({
               note: `Clothing filled in from your closest run (${referenceF}°F). Change anything that was different.`,
           };
 }
+
+/** Removes one custom item (case-sensitive exact match). Returns a new array. */
+export function removeClothingItem({
+    customClothing,
+    item,
+}: Readonly<{customClothing: ReadonlyArray<string>; item: string}>): string[] {
+    return customClothing.filter((existing) => existing !== item);
+}

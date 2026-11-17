@@ -7,6 +7,7 @@ import {
     defaultClothing,
     describeClothing,
     prefillForTemperature,
+    removeClothingItem,
 } from './clothing.js';
 import {feelingLabels, feelingOrder, feelings, feelingShortLabels} from './feelings.js';
 import {testRun} from './test-runs.js';
@@ -150,5 +151,40 @@ describe('feelings', () => {
         for (const feeling of feelingOrder) {
             assert.isTrue(Boolean(feelingLabels[feeling] && feelingShortLabels[feeling]));
         }
+    });
+});
+
+describe(removeClothingItem.name, () => {
+    it('removes only the exact match and returns a new array', () => {
+        const customClothing = [
+            'Glovs',
+            'glovs',
+            'Vest',
+        ];
+        assert.deepEquals(
+            removeClothingItem({
+                customClothing,
+                item: 'Glovs',
+            }),
+            [
+                'glovs',
+                'Vest',
+            ],
+        );
+        assert.deepEquals(customClothing, [
+            'Glovs',
+            'glovs',
+            'Vest',
+        ]);
+    });
+
+    it('leaves the list alone when the item is missing', () => {
+        assert.deepEquals(
+            removeClothingItem({
+                customClothing: ['Vest'],
+                item: 'Hat',
+            }),
+            ['Vest'],
+        );
     });
 });

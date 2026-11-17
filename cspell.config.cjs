@@ -16,6 +16,7 @@ module.exports = {
         'demann',
         'enterkeyhint',
         'gaiter',
+        'Glovs',
         'generationtime',
         'haspopup',
         'honeypot',
