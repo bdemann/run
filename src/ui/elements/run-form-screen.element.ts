@@ -399,7 +399,6 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
                         Temp °F
                         <input
                             type="number"
-                            inputmode="numeric"
                             .value=${draft.temperatureF}
                             ${listen('change', (event) => {
                                 changeTemperature((event.target as HTMLInputElement).value);
@@ -410,7 +409,6 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
                         Feels like °F
                         <input
                             type="number"
-                            inputmode="numeric"
                             .value=${draft.feelsLikeF}
                             ${listen('input', (event) => {
                                 updateState({
