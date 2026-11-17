@@ -62,9 +62,12 @@ async function fetchJson({
     for (let attempt = 0; attempt < (retryOnServerError ? 2 : 1); attempt++) {
         try {
             const response = await fetchFunction(url, {
+                /**
+                 * No `Accept` header: on 2026-11-17 api.weather.gov answered 503 to every request
+                 * with `Accept: application/json` or `application/geo+json` and 200 without one.
+                 */
                 headers: {
                     'User-Agent': userAgent,
-                    Accept: 'application/json',
                 },
                 signal: AbortSignal.timeout(requestTimeoutMs),
             });

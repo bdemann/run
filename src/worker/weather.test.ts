@@ -126,7 +126,6 @@ describe(handleWeatherRequest.name, () => {
         assert.strictEquals(calls.length, 1);
         assert.deepEquals(seenHeaders[0], {
             'User-Agent': 'run-log (github.com/bdemann/run)',
-            Accept: 'application/json',
         });
     });
 
