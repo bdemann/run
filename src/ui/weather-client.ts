@@ -5,7 +5,9 @@ import {
     locationFromCoordinates,
     parseForecast,
     parseGeocoding,
+    parseProxyWeather,
     type Weather,
+    weatherProxyUrl,
 } from '../data/weather.js';
 
 /** Weather older than this is fetched again before a run starts. */
@@ -24,17 +26,41 @@ export function getCachedWeather(location: Readonly<RunLocation>): CachedWeather
     return cached?.key === locationKey(location) ? cached : undefined;
 }
 
-/** Current conditions from Open-Meteo. Throws a readable error on failure. */
-export async function fetchWeather(location: Readonly<RunLocation>): Promise<Weather> {
-    let response: Response;
+/** Open-Meteo straight from the browser. Gives up after 6 s: it is sometimes unreachable. */
+async function fetchDirect(location: Readonly<RunLocation>): Promise<Weather | undefined> {
     try {
-        response = await fetch(forecastUrl(location));
+        const response = await fetch(forecastUrl(location), {
+            signal: AbortSignal.timeout(6000),
+        });
+        return response.ok ? parseForecast(await response.json()) : undefined;
     } catch {
-        throw new Error('No connection to the weather service.');
+        return undefined;
     }
-    const weather = response.ok ? parseForecast(await response.json()) : undefined;
+}
+
+/** Our Worker, which tries Open-Meteo then the National Weather Service. May take a while. */
+async function fetchViaWorker(location: Readonly<RunLocation>): Promise<Weather | undefined> {
+    try {
+        const response = await fetch(weatherProxyUrl(location), {
+            signal: AbortSignal.timeout(20_000),
+        });
+        if (!response.ok) {
+            return undefined;
+        }
+        const body: unknown = await response.json();
+        return body && typeof body === 'object' && 'weather' in body
+            ? parseProxyWeather(body.weather)
+            : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+/** Current conditions: Open-Meteo directly, else via the Worker. Throws a readable error. */
+export async function fetchWeather(location: Readonly<RunLocation>): Promise<Weather> {
+    const weather = (await fetchDirect(location)) ?? (await fetchViaWorker(location));
     if (!weather) {
-        throw new Error(`The weather service answered ${response.status}.`);
+        throw new Error("Couldn't get the weather right now. Tap Retry, or type the temperature.");
     }
     cached = {
         weather,

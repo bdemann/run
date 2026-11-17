@@ -1,6 +1,7 @@
 import {handleFeedbackRequest} from '@bdemann/app-kit/server';
 import {apiPaths, appName, repo} from '../data/app-info.js';
 import {withSecurityHeaders} from './security-headers.js';
+import {handleWeatherRequest} from './weather.js';
 
 /** Bindings and vars from `wrangler.jsonc`, plus secrets (`.dev.vars` locally). */
 export type WorkerEnv = {
@@ -81,6 +82,21 @@ export async function handleRequest(request: Request, env: WorkerEnv): Promise<R
             fetchFunction: fetch,
             userAgent: 'run-log-feedback',
         });
+    } else if (pathname === apiPaths.weather) {
+        response =
+            request.method === 'GET'
+                ? await handleWeatherRequest({
+                      request,
+                      fetchFunction: fetch,
+                      nowMs: Date.now(),
+                  })
+                : json(
+                      {
+                          ok: false,
+                          error: 'Use GET.',
+                      },
+                      405,
+                  );
     } else if (pathname === '/api' || pathname.startsWith('/api/')) {
         response = json(
             {

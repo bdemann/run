@@ -184,3 +184,63 @@ test('too cold: a miserable run at 30 means stay inside at 25', async ({page, we
     ).toBeVisible();
     await expect(page.locator('.advice')).toContainText('At 30°F you said it was miserable');
 });
+
+test('falls back to the Worker when Open-Meteo is unreachable, then offers Retry', async ({
+    page,
+    allowedConsoleErrors,
+}) => {
+    allowedConsoleErrors.push('Failed to load resource');
+    await page.route('https://api.open-meteo.com/**', async (route) => {
+        await route.abort('timedout');
+    });
+    await page.route('**/api/weather?**', async (route) => {
+        await route.fulfill({
+            json: {
+                ok: true,
+                weather: {
+                    temperatureF: 38,
+                    feelsLikeF: 33,
+                    windMph: 6,
+                },
+                source: 'nws',
+            },
+        });
+    });
+    await page.goto('/settings');
+    await page
+        .getByRole('button', {
+            name: 'Use my current location',
+        })
+        .click();
+    await expect(page.getByText(/Temperatures are for/)).toBeVisible();
+    await openTab(page, 'Today');
+    await expect(
+        page.getByLabel('Temperature', {
+            exact: true,
+        }),
+    ).toContainText('38°');
+
+    /** Every source failing shows the error, Retry and the typed temperature. */
+    await page.route('**/api/weather?**', async (route) => {
+        await route.fulfill({
+            status: 502,
+            json: {
+                ok: false,
+                error: 'No weather source answered.',
+            },
+        });
+    });
+    await page.reload();
+    await page
+        .getByRole('button', {
+            name: 'Refresh temperature',
+        })
+        .click();
+    await expect(page.locator('.error')).toContainText("Couldn't get the weather right now");
+    await expect(
+        page.getByRole('button', {
+            name: 'Retry',
+        }),
+    ).toBeVisible();
+    await expect(page.getByLabel('Temperature °F')).toBeVisible();
+});
