@@ -3,6 +3,7 @@ import {itCases} from '@augment-vir/test';
 import {describe, it} from 'node:test';
 import {
     advise,
+    describeConditionsDifference,
     findReferenceRun,
     isOverruled,
     miserableCeiling,
@@ -341,4 +342,152 @@ describe(advise.name, () => {
             },
         );
     });
+});
+
+describe(describeConditionsDifference.name, () => {
+    const reference = testRun({
+        temperatureF: 51,
+        feeling: feelings.coldOk,
+        feelsLikeF: 51,
+        windMph: 3,
+    });
+    const bare = testRun({
+        temperatureF: 51,
+        feeling: feelings.coldOk,
+    });
+
+    itCases(
+        (input: Parameters<typeof describeConditionsDifference>[0]) => {
+            return describeConditionsDifference(input);
+        },
+        [
+            {
+                it: 'says windier',
+                input: {
+                    reference,
+                    today: {
+                        feelsLikeF: 51,
+                        windMph: 14,
+                    },
+                },
+                expect: "It's windier today (14 mph vs 3 mph).",
+            },
+            {
+                it: 'says calmer',
+                input: {
+                    reference: {
+                        ...reference,
+                        windMph: 14,
+                    },
+                    today: {
+                        feelsLikeF: 51,
+                        windMph: 3,
+                    },
+                },
+                expect: "It's calmer today (3 mph vs 14 mph).",
+            },
+            {
+                it: 'says colder',
+                input: {
+                    reference,
+                    today: {
+                        feelsLikeF: 45,
+                        windMph: 3,
+                    },
+                },
+                expect: 'It feels colder today (45°F vs 51°F).',
+            },
+            {
+                it: 'says warmer',
+                input: {
+                    reference,
+                    today: {
+                        feelsLikeF: 56,
+                        windMph: 3,
+                    },
+                },
+                expect: 'It feels warmer today (56°F vs 51°F).',
+            },
+            {
+                it: 'prefers wind over feels-like',
+                input: {
+                    reference,
+                    today: {
+                        feelsLikeF: 45,
+                        windMph: 14,
+                    },
+                },
+                expect: "It's windier today (14 mph vs 3 mph).",
+            },
+            {
+                it: 'is silent below both thresholds',
+                input: {
+                    reference,
+                    today: {
+                        feelsLikeF: 47,
+                        windMph: 10,
+                    },
+                },
+                expect: undefined,
+            },
+            {
+                it: 'falls back to feels-like when wind is missing today',
+                input: {
+                    reference,
+                    today: {
+                        feelsLikeF: 45,
+                        windMph: undefined,
+                    },
+                },
+                expect: 'It feels colder today (45°F vs 51°F).',
+            },
+            {
+                it: 'falls back to feels-like when the run has no wind',
+                input: {
+                    reference: {
+                        ...reference,
+                        windMph: null,
+                    },
+                    today: {
+                        feelsLikeF: 45,
+                        windMph: 20,
+                    },
+                },
+                expect: 'It feels colder today (45°F vs 51°F).',
+            },
+            {
+                it: 'is silent when the run has no feels-like or wind',
+                input: {
+                    reference: bare,
+                    today: {
+                        feelsLikeF: 30,
+                        windMph: 30,
+                    },
+                },
+                expect: undefined,
+            },
+            {
+                it: 'is silent when today has nothing (typed temperature)',
+                input: {
+                    reference,
+                    today: {
+                        feelsLikeF: undefined,
+                        windMph: undefined,
+                    },
+                },
+                expect: undefined,
+            },
+            {
+                it: 'is silent when only feels-like is missing today',
+                input: {
+                    reference,
+                    today: {
+                        feelsLikeF: undefined,
+                        windMph: 4,
+                    },
+                },
+                expect: undefined,
+            },
+        ],
+    );
 });

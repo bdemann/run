@@ -204,3 +204,44 @@ export function advise({
         }),
     };
 }
+
+/** How much windier or calmer (mph) today must be before we mention it. */
+export const windDifferenceMph = 8;
+
+/** How much colder or warmer (°F, feels-like) today must be before we mention it. */
+export const feelsLikeDifferenceF = 5;
+
+/**
+ * A short note when today's wind or feels-like temperature is noticeably different from the run the
+ * advice is based on. Wind wins over feels-like. Returns `undefined` when either side is missing a
+ * value or the difference is small.
+ */
+export function describeConditionsDifference({
+    reference,
+    today,
+}: Readonly<{
+    reference: Readonly<Run>;
+    today: Readonly<{feelsLikeF: number | undefined | null; windMph: number | undefined | null}>;
+}>): string | undefined {
+    if (reference.windMph != undefined && today.windMph != undefined) {
+        const then = Math.round(reference.windMph);
+        const now = Math.round(today.windMph);
+        const windDifference = today.windMph - reference.windMph;
+        if (windDifference >= windDifferenceMph) {
+            return `It's windier today (${now} mph vs ${then} mph).`;
+        } else if (windDifference <= -windDifferenceMph) {
+            return `It's calmer today (${now} mph vs ${then} mph).`;
+        }
+    }
+    if (reference.feelsLikeF != undefined && today.feelsLikeF != undefined) {
+        const then = Math.round(reference.feelsLikeF);
+        const now = Math.round(today.feelsLikeF);
+        const feelsDifference = today.feelsLikeF - reference.feelsLikeF;
+        if (feelsDifference <= -feelsLikeDifferenceF) {
+            return `It feels colder today (${now}°F vs ${then}°F).`;
+        } else if (feelsDifference >= feelsLikeDifferenceF) {
+            return `It feels warmer today (${now}°F vs ${then}°F).`;
+        }
+    }
+    return undefined;
+}
