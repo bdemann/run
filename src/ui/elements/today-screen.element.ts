@@ -375,6 +375,17 @@ export const TodayScreen = defineElement()({
                         ${state.weatherError
                             ? html`
                                   <span class="error">${state.weatherError}</span>
+                                  ${location
+                                      ? html`
+                                            <button
+                                                class="link retry-weather"
+                                                ?disabled=${state.loadingWeather}
+                                                ${listen('click', () => void refresh())}
+                                            >
+                                                Retry
+                                            </button>
+                                        `
+                                      : nothing}
                               `
                             : (location?.name ?? 'No location set')}
                     </div>

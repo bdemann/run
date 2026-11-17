@@ -52,7 +52,12 @@ Never run remote wrangler commands (`--remote`, `deploy`, `secret put`); CI depl
     -   `clothing.ts`: built-in clothing groups, custom items, `prefillForTemperature` (a new run's
         form copies clothing + feeling from an exact-temperature run, clothing only from a nearby
         one).
-    -   `weather.ts`: Open-Meteo URLs and response parsing (free, no key, CORS).
+    -   `weather.ts`: Open-Meteo URLs and response parsing (free, no key, CORS), plus National
+        Weather Service (NWS) parsing and `weatherProxyUrl`. Weather path: the browser tries
+        Open-Meteo directly (6 s timeout), then `/api/weather` on the Worker
+        (`src/worker/weather.ts`), which tries Open-Meteo, then NWS point, stations and latest
+        observation. Coordinates sent to the Worker are rounded to 2 decimals (about 1 km) and the
+        Worker never logs or stores them.
     -   `shapes.ts`, `user-data.ts`, `run-store.ts`: the one stored document (`UserData`, also the
         export/import format), lenient parsing (bad runs are dropped one by one), and `RunStore`,
         the only API the UI uses (`subscribe` to re-render).

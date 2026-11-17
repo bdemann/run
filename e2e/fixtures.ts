@@ -13,9 +13,17 @@ export const defaultWeather: Readonly<MockWeather> = {
  * Every test gets a fresh browser context (so empty storage), a mocked Open-Meteo, and fails on any
  * page error or console error (a CSP violation shows up as one).
  */
-export const test = base.extend<{weather: MockWeather}>({
+export const test = base.extend<{weather: MockWeather; allowedConsoleErrors: string[]}>({
+    /** Substrings of console errors a test expects (e.g. a mocked network failure). */
+    allowedConsoleErrors: [
+        // eslint-disable-next-line no-empty-pattern -- Playwright requires a destructured first argument
+        async ({}, use) => {
+            await use([]);
+        },
+        {},
+    ],
     weather: [
-        async ({page}, use) => {
+        async ({page, allowedConsoleErrors}, use) => {
             const weather: MockWeather = {
                 ...defaultWeather,
             };
@@ -50,7 +58,10 @@ export const test = base.extend<{weather: MockWeather}>({
                 problems.push(`pageerror: ${error.message}`);
             });
             page.on('console', (message) => {
-                if (message.type() === 'error') {
+                if (
+                    message.type() === 'error' &&
+                    !allowedConsoleErrors.some((allowed) => message.text().includes(allowed))
+                ) {
                     problems.push(`console error: ${message.text()}`);
                 }
             });

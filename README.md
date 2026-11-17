@@ -4,7 +4,8 @@ A tiny running log for one question: **what should I wear to run at this tempera
 go outside at all?**
 
 -   **Start run** records the current temperature, feels-like temperature and wind from
-    [Open-Meteo](https://open-meteo.com) (free, no API key).
+    [Open-Meteo](https://open-meteo.com) (free, no API key), with the US National Weather Service
+    as a backup (through the app's Worker) when Open-Meteo is unreachable.
 -   **Finish run** asks what you wore and how you felt. If you have run at this temperature before,
     the form is filled in with your answers from last time.
 -   Before a run, **Today** says what you wore and how you felt last time at this temperature (or

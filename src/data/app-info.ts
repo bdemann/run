@@ -12,4 +12,6 @@ export const apiPaths = {
     health: '/api/health',
     /** POST: a feedback draft from the kit's feedback page. Files a GitHub issue. */
     feedback: '/api/feedback',
+    /** GET `?latitude=&longitude=`: current weather from Open-Meteo, else the NWS. */
+    weather: '/api/weather',
 } as const;

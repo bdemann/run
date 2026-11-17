@@ -65,6 +65,18 @@ describe('handleRequest', () => {
         });
     });
 
+    it('validates weather requests and only allows GET', async () => {
+        const bad = await handleRequest(new Request(`${origin}/api/weather`), makeEnv());
+        assert.strictEquals(bad.status, 400);
+        const post = await handleRequest(
+            new Request(`${origin}/api/weather`, {
+                method: 'POST',
+            }),
+            makeEnv(),
+        );
+        assert.strictEquals(post.status, 405);
+    });
+
     it('404s unknown api paths', async () => {
         const response = await handleRequest(new Request(`${origin}/api/nope`), makeEnv());
         assert.strictEquals(response.status, 404);
