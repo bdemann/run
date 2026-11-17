@@ -7,6 +7,8 @@ module.exports = {
         '.claude/**',
         '.not-committed/**',
         '.wrangler/**',
+        'test-results/**',
+        'playwright-report/**',
         '.dev.vars',
     ],
     words: [

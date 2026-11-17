@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "allowImportingTsExtensions": true,
+        "noEmit": true,
+        "rootDir": "..",
+        "types": [
+            "node"
+        ]
+    },
+    "exclude": [],
+    "extends": "../tsconfig.json",
+    "include": [
+        "./**/*.ts"
+    ]
+}

@@ -23,3 +23,15 @@ jobs:
               run: |
                   npm ci
                   npm run test:all
+            - name: run e2e
+              shell: bash
+              run: |
+                  npx playwright install --with-deps chromium
+                  npm run test:e2e
+            - name: upload e2e failure artifacts
+              if: failure()
+              uses: actions/upload-artifact@v4.4.3
+              with:
+                  name: e2e-test-results
+                  path: test-results/
+                  retention-days: 7
