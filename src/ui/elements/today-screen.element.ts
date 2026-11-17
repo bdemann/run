@@ -1,6 +1,12 @@
 import {getNowInIsoString} from 'date-vir';
 import {css, defineElement, html, listen, nothing, type HtmlInterpolation} from 'element-vir';
-import {advise, suggestionHeadings, suggestions, type Advice} from '../../data/advice.js';
+import {
+    advise,
+    describeConditionsDifference,
+    suggestionHeadings,
+    suggestions,
+    type Advice,
+} from '../../data/advice.js';
 import {describeClothing} from '../../data/clothing.js';
 import {formatElapsed} from '../../data/elapsed.js';
 import {feelingShortLabels} from '../../data/feelings.js';
@@ -40,7 +46,11 @@ const stayInside = html`
     <p>Use the treadmill, drive to the gym, or take a day off.</p>
 `;
 
-function renderAdvice(advice: Readonly<Advice>, hasLocation: boolean): HtmlInterpolation {
+function renderAdvice(
+    advice: Readonly<Advice>,
+    hasLocation: boolean,
+    weather: Readonly<Weather> | undefined,
+): HtmlInterpolation {
     if (advice.kind === 'no-temperature') {
         return hasLocation
             ? html`
@@ -76,6 +86,13 @@ function renderAdvice(advice: Readonly<Advice>, hasLocation: boolean): HtmlInter
         <strong>${feelingShortLabels[run.feeling]}</strong>
         .
     `;
+    const conditions = describeConditionsDifference({
+        reference: run,
+        today: {
+            feelsLikeF: weather?.feelsLikeF,
+            windMph: weather?.windMph,
+        },
+    });
     return html`
         <h2>${suggestionHeadings[advice.suggestion]}</h2>
         <p>
@@ -89,6 +106,11 @@ function renderAdvice(advice: Readonly<Advice>, hasLocation: boolean): HtmlInter
                       ${formatRunDate(run.startedAt)}: ${wore}
                   `}
         </p>
+        ${conditions
+            ? html`
+                  <p>${conditions}</p>
+              `
+            : nothing}
         ${run.notes
             ? html`
                   <p class="muted">Your note: “${run.notes}”</p>
@@ -381,7 +403,7 @@ export const TodayScreen = defineElement()({
                     : nothing}
             </div>
             <div class="card advice ${adviceTone(advice)}" aria-live="polite">
-                ${renderAdvice(advice, !!location)}
+                ${renderAdvice(advice, !!location, state.weather)}
             </div>
             <button
                 class="primary"
