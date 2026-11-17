@@ -1,0 +1,206 @@
+import {feelings, feelingScores} from './feelings.js';
+import {type Run} from './shapes.js';
+
+/**
+ * Roughly how many °F one "layer" of comfort is worth, used when comparing today with a run at a
+ * nearby but different temperature.
+ */
+export const degreesPerLayer = 7;
+
+/** How far away (°F) a past run can be and still count as "nearby". */
+export const nearbyRangeF = 6;
+
+/** A past run that tells us something about today's temperature. */
+export type ReferenceRun = {
+    run: Readonly<Run>;
+    /** True when it was at the same (rounded) temperature as today. */
+    exact: boolean;
+};
+
+/** What to do today, warmest outfit change last. */
+export const suggestions = {
+    stayInside: 'stay-inside',
+    bundleUp: 'bundle-up',
+    sameOrLightLayer: 'same-or-light-layer',
+    same: 'same',
+    fewerLayers: 'fewer-layers',
+} as const;
+
+export type Suggestion = (typeof suggestions)[keyof typeof suggestions];
+
+export const suggestionHeadings: Readonly<Record<Suggestion, string>> = {
+    [suggestions.stayInside]: 'Probably stay inside.',
+    [suggestions.bundleUp]: 'Bundle up: add a layer.',
+    [suggestions.sameOrLightLayer]:
+        'The same outfit should be fine, or add a light layer to be comfortable.',
+    [suggestions.same]: 'Do the same thing again.',
+    [suggestions.fewerLayers]: 'Leave a layer at home.',
+};
+
+export type Advice =
+    | {kind: 'no-temperature'}
+    | {
+          /** At or below a temperature you called miserable: don't go out. */
+          kind: 'too-cold';
+          temperatureF: number;
+          miserableAtF: number;
+      }
+    | {kind: 'no-history'; temperatureF: number}
+    | {
+          kind: 'suggestion';
+          temperatureF: number;
+          reference: ReferenceRun;
+          suggestion: Suggestion;
+      };
+
+/** Newer first. Stored times are UTC ISO strings, so they sort as text. */
+export function sortNewestFirst(runs: ReadonlyArray<Readonly<Run>>): Readonly<Run>[] {
+    return runs.toSorted((a, b) => b.startedAt.localeCompare(a.startedAt));
+}
+
+/**
+ * A "miserable" run stops counting once you later ran at that temperature or colder and were OK
+ * (you found better gear, or it was a bad day).
+ */
+export function isOverruled({
+    run,
+    runs,
+}: Readonly<{run: Readonly<Run>; runs: ReadonlyArray<Readonly<Run>>}>): boolean {
+    return (
+        run.feeling === feelings.miserable &&
+        runs.some((other) => {
+            return (
+                other.feeling !== feelings.miserable &&
+                Math.round(other.temperatureF) <= Math.round(run.temperatureF) &&
+                other.startedAt > run.startedAt
+            );
+        })
+    );
+}
+
+/** The warmest temperature you called miserable that still stands, if any. */
+export function miserableCeiling(runs: ReadonlyArray<Readonly<Run>>): number | undefined {
+    const standing = runs
+        .filter((run) => {
+            return (
+                run.feeling === feelings.miserable &&
+                !isOverruled({
+                    run,
+                    runs,
+                })
+            );
+        })
+        .map((run) => Math.round(run.temperatureF));
+    return standing.length ? Math.max(...standing) : undefined;
+}
+
+/**
+ * The most useful past run for a temperature: the newest one at the same rounded temperature, or
+ * else the closest one within {@link nearbyRangeF} (newest wins a tie). Overruled miserable runs are
+ * skipped.
+ */
+export function findReferenceRun({
+    runs,
+    temperatureF,
+}: Readonly<{
+    runs: ReadonlyArray<Readonly<Run>>;
+    temperatureF: number;
+}>): ReferenceRun | undefined {
+    const target = Math.round(temperatureF);
+    const candidates = sortNewestFirst(
+        runs.filter((run) => {
+            return !isOverruled({
+                run,
+                runs,
+            });
+        }),
+    );
+    const exact = candidates.find((run) => Math.round(run.temperatureF) === target);
+    if (exact) {
+        return {
+            run: exact,
+            exact: true,
+        };
+    }
+    let best: Readonly<Run> | undefined;
+    let bestDistance = Infinity;
+    for (const run of candidates) {
+        const distance = Math.abs(Math.round(run.temperatureF) - target);
+        if (distance <= nearbyRangeF && distance < bestDistance) {
+            best = run;
+            bestDistance = distance;
+        }
+    }
+    return best
+        ? {
+              run: best,
+              exact: false,
+          }
+        : undefined;
+}
+
+/**
+ * Shifts how a past run felt by how much warmer or colder it is now, then buckets the result. A run
+ * that was "a bit cold" 7°F warmer than today becomes "too cold", so: bundle up.
+ */
+export function suggestFrom({
+    reference,
+    temperatureF,
+}: Readonly<{reference: Readonly<Run>; temperatureF: number}>): Suggestion {
+    const difference = Math.round(temperatureF) - Math.round(reference.temperatureF);
+    const adjusted = feelingScores[reference.feeling] + difference / degreesPerLayer;
+    if (adjusted <= -2.5) {
+        return suggestions.stayInside;
+    } else if (adjusted <= -1.5) {
+        return suggestions.bundleUp;
+    } else if (adjusted <= -0.5) {
+        return suggestions.sameOrLightLayer;
+    } else if (adjusted <= 0.5) {
+        return suggestions.same;
+    } else {
+        return suggestions.fewerLayers;
+    }
+}
+
+/** What to tell the person before a run at this temperature. */
+export function advise({
+    runs,
+    temperatureF,
+}: Readonly<{
+    runs: ReadonlyArray<Readonly<Run>>;
+    temperatureF: number | undefined;
+}>): Advice {
+    if (temperatureF == undefined) {
+        return {
+            kind: 'no-temperature',
+        };
+    }
+    const rounded = Math.round(temperatureF);
+    const ceiling = miserableCeiling(runs);
+    if (ceiling != undefined && rounded <= ceiling) {
+        return {
+            kind: 'too-cold',
+            temperatureF: rounded,
+            miserableAtF: ceiling,
+        };
+    }
+    const reference = findReferenceRun({
+        runs,
+        temperatureF: rounded,
+    });
+    if (!reference) {
+        return {
+            kind: 'no-history',
+            temperatureF: rounded,
+        };
+    }
+    return {
+        kind: 'suggestion',
+        temperatureF: rounded,
+        reference,
+        suggestion: suggestFrom({
+            reference: reference.run,
+            temperatureF: rounded,
+        }),
+    };
+}

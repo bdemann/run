@@ -1,0 +1,17 @@
+{
+    "compilerOptions": {
+        "noEmit": true,
+        "outDir": "../../dist-worker-check/",
+        "rootDir": "..",
+        "types": [
+            "@cloudflare/workers-types",
+            "node"
+        ]
+    },
+    "exclude": [],
+    "extends": "../../tsconfig.json",
+    "include": [
+        "./**/*.ts",
+        "../data/**/*.ts"
+    ]
+}

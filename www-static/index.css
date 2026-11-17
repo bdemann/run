@@ -1,0 +1,61 @@
+/* Design tokens. Elements use these vars, never raw colors. */
+:root {
+    color-scheme: light dark;
+    --run-bg: #f6f5f1;
+    --run-surface: #ffffff;
+    --run-text: #1d2422;
+    --run-muted: #5f6966;
+    --run-border: #d6d6cc;
+    --run-accent: #1f6f5c;
+    --run-on-accent: #ffffff;
+    --run-selected: #d6ebe4;
+    --run-danger: #b23a2e;
+    --run-focus: #1a5fd0;
+    --run-stop-bg: #fdecea;
+    --run-adjust-bg: #fff6e0;
+    --run-go-bg: #e8f4ef;
+
+    /* @bdemann/app-kit colors. */
+    --kit-accent: var(--run-accent);
+    --kit-on-accent: var(--run-on-accent);
+    --kit-text: var(--run-text);
+    --kit-muted-text: var(--run-muted);
+    --kit-surface: var(--run-surface);
+    --kit-field: var(--run-surface);
+    --kit-border: var(--run-border);
+    --kit-focus: var(--run-focus);
+    --kit-error: var(--run-danger);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --run-bg: #141816;
+        --run-surface: #1e2421;
+        --run-text: #e8ece9;
+        --run-muted: #9aa5a0;
+        --run-border: #36403b;
+        --run-accent: #4fb596;
+        --run-on-accent: #0d1311;
+        --run-selected: #24453b;
+        --run-danger: #ef7d70;
+        --run-focus: #7fb0ff;
+        --run-stop-bg: #3a1f1c;
+        --run-adjust-bg: #352d18;
+        --run-go-bg: #1c3029;
+        --kit-scrim: rgba(0, 0, 0, 0.6);
+    }
+}
+
+html,
+body {
+    margin: 0;
+    background: var(--run-bg);
+    color: var(--run-text);
+    font-family:
+        system-ui,
+        -apple-system,
+        'Segoe UI',
+        sans-serif;
+    font-size: 16px;
+    line-height: 1.45;
+}

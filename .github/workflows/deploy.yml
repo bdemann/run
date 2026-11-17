@@ -1,0 +1,35 @@
+name: deploy
+
+on:
+    push:
+        branches:
+            - main
+
+concurrency:
+    group: deploy
+    cancel-in-progress: false
+
+jobs:
+    deploy:
+        # Off until the Cloudflare secrets exist: set the repo variable CLOUDFLARE_DEPLOY to true.
+        if: ${{ vars.CLOUDFLARE_DEPLOY == 'true' }}
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4.1.7
+            - uses: actions/setup-node@v4.0.3
+              with:
+                  node-version-file: '.nvmrc'
+            - name: test
+              shell: bash
+              run: |
+                  npm ci
+                  npm run test:all
+            - name: build
+              shell: bash
+              run: npm run build
+            - name: deploy
+              shell: bash
+              env:
+                  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+                  CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+              run: npx wrangler deploy --var COMMIT:$GITHUB_SHA

@@ -1,0 +1,24 @@
+{
+    "100": true,
+    "all": true,
+    "checkCoverage": true,
+    "clean": true,
+    "exclude": [
+        "**/*.test.ts",
+        "**/*.example.ts",
+        "src/ui/**",
+        "src/router.ts",
+        "src/sw.ts",
+        "src/worker/**",
+        "src/data/shapes.ts"
+    ],
+    "include": [
+        "src/**/*.ts"
+    ],
+    "perFile": true,
+    "reporter": [
+        "html",
+        "istanbul-smart-text-reporter"
+    ],
+    "skipFull": true
+}

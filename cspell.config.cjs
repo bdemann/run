@@ -1,0 +1,35 @@
+const {baseConfig} = require('@virmator/spellcheck/configs/cspell.config.base.cjs');
+
+module.exports = {
+    ...baseConfig,
+    ignorePaths: [
+        ...(baseConfig.ignorePaths ?? []),
+        '.claude/**',
+        '.not-committed/**',
+        '.wrangler/**',
+        '.dev.vars',
+    ],
+    words: [
+        ...baseConfig.words,
+        'bdemann',
+        'Cloudflare',
+        'demann',
+        'enterkeyhint',
+        'gaiter',
+        'generationtime',
+        'haspopup',
+        'honeypot',
+        'inputmode',
+        'maskable',
+        'Meteo',
+        'navigations',
+        'novalidate',
+        'nosniff',
+        'precached',
+        'precaching',
+        'runstorm',
+        'treadmill',
+        'virmator',
+        'wrangler',
+    ],
+};
