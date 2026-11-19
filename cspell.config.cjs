@@ -36,6 +36,7 @@ module.exports = {
         'precaching',
         'runstorm',
         'treadmill',
+        'valuenow',
         'virmator',
         'wrangler',
     ],

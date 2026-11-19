@@ -15,10 +15,12 @@ import {
 } from '../../data/workout-plan.js';
 import {type ActiveWorkout, type Exercise} from '../../data/workout-shapes.js';
 import {retestDue} from '../../data/workouts.js';
+import {goTo} from '../../router.js';
 import {formatRunDate} from '../dates.js';
 import {diagnosticLog} from '../diagnostics.js';
 import {getRunStore} from '../storage.js';
 import {screenStyles} from '../styles.js';
+import {RetestCard} from './retest-card.element.js';
 
 type Summary = {next: string; goals: ReadonlyArray<string>};
 
@@ -41,12 +43,19 @@ function doneValue(text: string): number {
 
 type SetValueParams = Readonly<{workout: Readonly<ActiveWorkout>; index: number; value: number}>;
 
+type SetVariationParams = Readonly<{
+    workout: Readonly<ActiveWorkout>;
+    index: number;
+    variationId: string;
+}>;
+
 function renderActive({
     active,
     data,
     editingSet,
     confirmingCancel,
     setValue,
+    setVariation,
     finish,
     edit,
     askCancel,
@@ -57,6 +66,7 @@ function renderActive({
     editingSet: number | undefined;
     confirmingCancel: boolean;
     setValue: (params: SetValueParams) => void;
+    setVariation: (params: SetVariationParams) => void;
     finish: (workout: Readonly<ActiveWorkout>) => void;
     edit: (index: number) => void;
     askCancel: (asking: boolean) => void;
@@ -86,7 +96,37 @@ function renderActive({
             return html`
                 <div class="card">
                     <h3>${exercise?.name ?? exerciseId}</h3>
-                    <p class="variation">${variationName}</p>
+                    ${active.isTest && exercise
+                        ? html`
+                              <label class="variation">
+                                  Variation
+                                  <select
+                                      ${listen('change', (event) => {
+                                          setVariation({
+                                              workout: active,
+                                              index: indexed[0]?.index ?? 0,
+                                              variationId: (event.target as HTMLSelectElement)
+                                                  .value,
+                                          });
+                                      })}
+                                  >
+                                      ${exercise.variations.map((variation) => {
+                                          return html`
+                                              <option
+                                                  value=${variation.id}
+                                                  ?selected=${variation.id ===
+                                                  indexed[0]?.set.variationId}
+                                              >
+                                                  ${variation.name}
+                                              </option>
+                                          `;
+                                      })}
+                                  </select>
+                              </label>
+                          `
+                        : html`
+                              <p class="variation">${variationName}</p>
+                          `}
                     ${exercise?.cues.length
                         ? html`
                               <details>
@@ -208,10 +248,6 @@ export const WorkoutScreen = defineElement()({
     tagName: 'workout-screen',
     styles: css`
         ${screenStyles}
-
-        .card.muted-card {
-            background: var(--run-go-bg);
-        }
 
         h3 {
             margin: 0 0 4px;
@@ -370,6 +406,20 @@ export const WorkoutScreen = defineElement()({
             });
         }
 
+        function setVariation({workout, index, variationId}: SetVariationParams) {
+            store.updateActiveWorkout({
+                ...workout,
+                sets: workout.sets.map((set, setIndex) => {
+                    return setIndex === index
+                        ? {
+                              ...set,
+                              variationId,
+                          }
+                        : set;
+                }),
+            });
+        }
+
         function finish(workout: Readonly<ActiveWorkout>) {
             const goalsBefore = store.getData().goals;
             const saved = finishedWorkout({
@@ -405,6 +455,7 @@ export const WorkoutScreen = defineElement()({
                 editingSet: state.editingSet,
                 confirmingCancel: state.confirming === 'cancel',
                 setValue,
+                setVariation,
                 finish,
                 edit(index) {
                     updateState({
@@ -438,6 +489,9 @@ export const WorkoutScreen = defineElement()({
             .slice(0, recentCount);
         return html`
             <h2>Workout</h2>
+            <button type="button" class="link goals-link" ${listen('click', () => goTo(['goals']))}>
+                Goals
+            </button>
             ${state.summary
                 ? html`
                       <div class="card summary" role="status">
@@ -461,12 +515,11 @@ export const WorkoutScreen = defineElement()({
                 nowMs: Date.now(),
             })
                 ? html`
-                      <div class="card muted-card">
-                          <p>It's been a while. Retest to see how far you've come.</p>
-                          <button type="button" ${listen('click', () => start(true))}>
-                              Retest
-                          </button>
-                      </div>
+                      <${RetestCard.assign({
+                          onRetest() {
+                              return start(true);
+                          },
+                      })}></${RetestCard}>
                   `
                 : nothing}
             <button type="button" class="primary" ${listen('click', () => start(baseline))}>

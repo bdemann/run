@@ -72,6 +72,7 @@ export const screenStyles = css`
     }
 
     input,
+    select,
     textarea {
         box-sizing: border-box;
         width: 100%;
@@ -91,11 +92,12 @@ export const screenStyles = css`
     }
 
     label > input,
+    label > select,
     label > textarea {
         margin-top: 4px;
     }
 
-    :is(button, input, textarea, a, .button-like):focus-visible {
+    :is(button, input, select, textarea, a, .button-like):focus-visible {
         outline: 3px solid var(--run-focus);
         outline-offset: 2px;
     }

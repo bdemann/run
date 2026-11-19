@@ -12,6 +12,7 @@ import {
     sendFeedback,
 } from '../send-feedback.js';
 import {getRunStore} from '../storage.js';
+import {GoalsScreen} from './goals-screen.element.js';
 import {HistoryScreen} from './history-screen.element.js';
 import {RunFormScreen} from './run-form-screen.element.js';
 import {SettingsScreen} from './settings-screen.element.js';
@@ -62,7 +63,7 @@ const navTabs = [
 
 /** Which tab a screen highlights. About and Feedback (from the menu) have none. */
 function tabIdForScreen(screen: Screen): string | undefined {
-    if (screen === 'workout') {
+    if (screen === 'workout' || screen === 'goals') {
         return 'workout';
     } else if (screen === 'history' || screen === 'edit') {
         return 'history';
@@ -93,6 +94,10 @@ function renderScreen(route: Readonly<RunRoute>): HtmlInterpolation {
     } else if (screen === 'workout') {
         return html`
             <${WorkoutScreen}></${WorkoutScreen}>
+        `;
+    } else if (screen === 'goals') {
+        return html`
+            <${GoalsScreen}></${GoalsScreen}>
         `;
     } else if (screen === 'history') {
         return html`
