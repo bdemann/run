@@ -1,4 +1,4 @@
-import {defineShape} from 'object-shape-tester';
+import {defineShape, nullableShape} from 'object-shape-tester';
 import {apiPaths} from './app-info.js';
 import {checkShape} from './shape-check.js';
 import {type RunLocation} from './shapes.js';
@@ -41,21 +41,52 @@ export function weatherProxyUrl(
     return `${apiPaths.weather}?${params.toString()}`;
 }
 
-const proxyWeatherShape = defineShape({
-    temperatureF: 0,
-    feelsLikeF: 0,
-    windMph: 0,
+/** Where a reading came from: a measuring station (`nws`) or a weather model (`open-meteo`). */
+export type WeatherSource = 'nws' | 'open-meteo';
+
+/** `Weather` plus where and when it was measured. */
+export type WeatherReading = {
+    weather: Weather;
+    source: WeatherSource;
+    /** UTC ISO time of the observation; `null` for a model estimate. */
+    observedAt: string | null;
+    /** NWS station identifier like `KPVU`; `null` for a model estimate. */
+    station: string | null;
+};
+
+const proxyReadingShape = defineShape({
+    weather: {
+        temperatureF: 0,
+        feelsLikeF: 0,
+        windMph: 0,
+    },
+    source: '',
+    observedAt: nullableShape(''),
+    station: nullableShape(''),
 });
 
-/** Reads the `weather` field of the Worker's `/api/weather` answer. */
-export function parseProxyWeather(json: unknown): Weather | undefined {
-    return checkShape(json, proxyWeatherShape)
-        ? {
-              temperatureF: json.temperatureF,
-              feelsLikeF: json.feelsLikeF,
-              windMph: json.windMph,
-          }
-        : undefined;
+/** Reads the Worker's whole `/api/weather` answer, or `undefined` when it is not that shape. */
+export function parseProxyReading(json: unknown): WeatherReading | undefined {
+    if (
+        !checkShape(json, proxyReadingShape, {
+            allowExtraKeys: true,
+        })
+    ) {
+        return undefined;
+    } else if (json.source !== 'nws' && json.source !== 'open-meteo') {
+        return undefined;
+    } else {
+        return {
+            weather: {
+                temperatureF: json.weather.temperatureF,
+                feelsLikeF: json.weather.feelsLikeF,
+                windMph: json.weather.windMph,
+            },
+            source: json.source,
+            observedAt: json.observedAt ?? null,
+            station: json.station ?? null,
+        };
+    }
 }
 
 const forecastShape = defineShape({
@@ -157,7 +188,7 @@ export function kmhToMph(kmh: number): number {
 export const nwsOrigin = 'https://api.weather.gov';
 
 /** An NWS observation older than this is not "current" and is ignored. */
-export const nwsMaxObservationAgeMs = 2 * 60 * 60_000;
+export const nwsMaxObservationAgeMs = 90 * 60_000;
 
 /** The NWS "point" lookup, which says where the nearby observation stations are listed. */
 export function nwsPointUrl(
@@ -231,12 +262,12 @@ function readNwsValue(properties: object, key: string): number | undefined {
 
 /**
  * Reads an NWS latest-observation response. Gives `undefined` when there is no temperature or the
- * observation is more than two hours older than `nowMs`.
+ * observation is more than 90 minutes older than `nowMs`. Also gives the observation time.
  */
 export function parseNwsObservation({
     json,
     nowMs,
-}: Readonly<{json: unknown; nowMs: number}>): Weather | undefined {
+}: Readonly<{json: unknown; nowMs: number}>): {weather: Weather; observedAt: string} | undefined {
     if (
         !checkShape(json, nwsObservationShape, {
             allowExtraKeys: true,
@@ -258,8 +289,11 @@ export function parseNwsObservation({
         readNwsValue(properties, 'heatIndex') ??
         temperatureC;
     return {
-        temperatureF: celsiusToF(temperatureC),
-        feelsLikeF: celsiusToF(feelsLikeC),
-        windMph: kmhToMph(readNwsValue(properties, 'windSpeed') ?? 0),
+        weather: {
+            temperatureF: celsiusToF(temperatureC),
+            feelsLikeF: celsiusToF(feelsLikeC),
+            windMph: kmhToMph(readNwsValue(properties, 'windSpeed') ?? 0),
+        },
+        observedAt: properties.timestamp,
     };
 }

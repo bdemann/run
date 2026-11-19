@@ -12,7 +12,7 @@ import {formatElapsed} from '../../data/elapsed.js';
 import {feelingShortLabels} from '../../data/feelings.js';
 import {parseNumber} from '../../data/parse-number.js';
 import {type ActiveRun, type UserData} from '../../data/shapes.js';
-import {type Weather} from '../../data/weather.js';
+import {type Weather, type WeatherReading} from '../../data/weather.js';
 import {goTo} from '../../router.js';
 import {formatClockTime, formatRunDate} from '../dates.js';
 import {diagnosticLog} from '../diagnostics.js';
@@ -27,6 +27,13 @@ type Runtime = {
 
 function round(value: number | null | undefined): string {
     return value == undefined ? '--' : String(Math.round(value));
+}
+
+/** "Measured at KPVU · 6:35 AM" or "Model estimate (Open-Meteo)". */
+function describeSource(reading: Readonly<WeatherReading>): string {
+    return reading.source === 'nws' && reading.station && reading.observedAt
+        ? `Measured at ${reading.station} · ${formatClockTime(reading.observedAt)}`
+        : 'Model estimate (Open-Meteo)';
 }
 
 function adviceTone(advice: Readonly<Advice>): string {
@@ -191,7 +198,7 @@ export const TodayScreen = defineElement()({
     state() {
         return {
             data: getRunStore().getData() as Readonly<UserData>,
-            weather: undefined as Weather | undefined,
+            reading: undefined as WeatherReading | undefined,
             weatherError: '',
             typedTemperature: '',
             loadingWeather: false,
@@ -223,16 +230,16 @@ export const TodayScreen = defineElement()({
         const cached = getCachedWeather(location);
         if (cached) {
             updateState({
-                weather: cached.weather,
+                reading: cached.reading,
             });
         }
         updateState({
             loadingWeather: true,
         });
         freshWeather(location)
-            .then((weather) => {
+            .then((reading) => {
                 updateState({
-                    weather,
+                    reading,
                     weatherError: '',
                     loadingWeather: false,
                 });
@@ -251,6 +258,7 @@ export const TodayScreen = defineElement()({
     render({state, updateState}) {
         const {data} = state;
         const location = data.settings.location;
+        const weather = state.reading?.weather;
 
         async function refresh() {
             if (!location) {
@@ -261,7 +269,7 @@ export const TodayScreen = defineElement()({
             });
             try {
                 updateState({
-                    weather: await fetchWeather(location),
+                    reading: await fetchWeather(location),
                     weatherError: '',
                 });
             } catch (error) {
@@ -278,11 +286,11 @@ export const TodayScreen = defineElement()({
             updateState({
                 starting: true,
             });
-            let weather = state.weather;
+            let weather: Weather | undefined = state.reading?.weather;
             const typedTemperatureF = parseNumber(state.typedTemperature);
             if (location) {
                 try {
-                    weather = await freshWeather(location);
+                    weather = (await freshWeather(location)).weather;
                 } catch {
                     /** Start anyway; the temperature can be typed in at the end. */
                 }
@@ -338,7 +346,7 @@ export const TodayScreen = defineElement()({
         }
 
         const typedTemperatureF = parseNumber(state.typedTemperature) ?? undefined;
-        const temperatureF = state.weather?.temperatureF ?? typedTemperatureF;
+        const temperatureF = weather?.temperatureF ?? typedTemperatureF;
         const advice = advise({
             runs: data.runs,
             temperatureF,
@@ -346,10 +354,10 @@ export const TodayScreen = defineElement()({
 
         return html`
             <div class="card weather">
-                ${state.weather
+                ${weather
                     ? html`
                           <div class="temperature" aria-label="Temperature">
-                              ${round(state.weather.temperatureF)}°
+                              ${round(weather.temperatureF)}°
                           </div>
                       `
                     : html`
@@ -370,10 +378,15 @@ export const TodayScreen = defineElement()({
                           </label>
                       `}
                 <div class="weather-details">
-                    ${state.weather
+                    ${weather
                         ? html`
-                              <div>Feels like ${round(state.weather.feelsLikeF)}°</div>
-                              <div>Wind ${round(state.weather.windMph)} mph</div>
+                              <div>Feels like ${round(weather.feelsLikeF)}°</div>
+                              <div>Wind ${round(weather.windMph)} mph</div>
+                          `
+                        : nothing}
+                    ${state.reading
+                        ? html`
+                              <div class="muted source">${describeSource(state.reading)}</div>
                           `
                         : nothing}
                     <div class="muted">
@@ -418,7 +431,7 @@ export const TodayScreen = defineElement()({
                     : nothing}
             </div>
             <div class="card advice ${adviceTone(advice)}" aria-live="polite">
-                ${renderAdvice(advice, !!location, state.weather)}
+                ${renderAdvice(advice, !!location, weather)}
             </div>
             <button
                 class="primary"

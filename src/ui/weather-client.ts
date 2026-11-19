@@ -5,16 +5,16 @@ import {
     locationFromCoordinates,
     parseForecast,
     parseGeocoding,
-    parseProxyWeather,
-    type Weather,
+    parseProxyReading,
     weatherProxyUrl,
+    type WeatherReading,
 } from '../data/weather.js';
 import {diagnosticLog} from './diagnostics.js';
 
 /** Weather older than this is fetched again before a run starts. */
 export const weatherMaxAgeMs = 15 * 60_000;
 
-type CachedWeather = {weather: Weather; fetchedAtMs: number; key: string};
+type CachedWeather = {reading: WeatherReading; fetchedAtMs: number; key: string};
 
 let cached: CachedWeather | undefined;
 
@@ -33,7 +33,7 @@ function failureReason(error: unknown): string {
 }
 
 /** Open-Meteo straight from the browser. Gives up after 6 s: it is sometimes unreachable. */
-async function fetchDirect(location: Readonly<RunLocation>): Promise<Weather | undefined> {
+async function fetchDirect(location: Readonly<RunLocation>): Promise<WeatherReading | undefined> {
     const startMs = Date.now();
     try {
         const response = await fetch(forecastUrl(location), {
@@ -58,7 +58,14 @@ async function fetchDirect(location: Readonly<RunLocation>): Promise<Weather | u
                 reason: 'shape',
             });
         }
-        return weather;
+        return weather
+            ? {
+                  weather,
+                  source: 'open-meteo',
+                  observedAt: null,
+                  station: null,
+              }
+            : undefined;
     } catch (error) {
         diagnosticLog.log('error', {
             step: 'direct',
@@ -68,8 +75,10 @@ async function fetchDirect(location: Readonly<RunLocation>): Promise<Weather | u
     }
 }
 
-/** Our Worker, which tries Open-Meteo then the National Weather Service. May take a while. */
-async function fetchViaWorker(location: Readonly<RunLocation>): Promise<Weather | undefined> {
+/** Our Worker, which prefers an NWS station measurement over Open-Meteo. May take a while. */
+async function fetchViaWorker(
+    location: Readonly<RunLocation>,
+): Promise<WeatherReading | undefined> {
     const startMs = Date.now();
     try {
         const response = await fetch(weatherProxyUrl(location), {
@@ -82,16 +91,10 @@ async function fetchViaWorker(location: Readonly<RunLocation>): Promise<Weather 
             });
             return undefined;
         }
-        const body: unknown = await response.json();
-        const weather =
-            body && typeof body === 'object' && 'weather' in body
-                ? parseProxyWeather(body.weather)
-                : undefined;
-        if (weather) {
-            const source =
-                body && typeof body === 'object' && 'source' in body ? String(body.source) : '';
+        const reading = parseProxyReading(await response.json());
+        if (reading) {
             diagnosticLog.log('weather-ok', {
-                source: /^[a-z-]{1,20}$/.test(source) ? source : 'proxy',
+                source: reading.source,
                 ms: Date.now() - startMs,
             });
         } else {
@@ -100,7 +103,7 @@ async function fetchViaWorker(location: Readonly<RunLocation>): Promise<Weather 
                 reason: 'shape',
             });
         }
-        return weather;
+        return reading;
     } catch (error) {
         diagnosticLog.log('error', {
             step: 'proxy',
@@ -110,25 +113,25 @@ async function fetchViaWorker(location: Readonly<RunLocation>): Promise<Weather 
     }
 }
 
-/** Current conditions: Open-Meteo directly, else via the Worker. Throws a readable error. */
-export async function fetchWeather(location: Readonly<RunLocation>): Promise<Weather> {
-    const weather = (await fetchDirect(location)) ?? (await fetchViaWorker(location));
-    if (!weather) {
+/** Current conditions: our Worker (NWS first), else Open-Meteo directly. Throws a readable error. */
+export async function fetchWeather(location: Readonly<RunLocation>): Promise<WeatherReading> {
+    const reading = (await fetchViaWorker(location)) ?? (await fetchDirect(location));
+    if (!reading) {
         throw new Error("Couldn't get the weather right now. Tap Retry, or type the temperature.");
     }
     cached = {
-        weather,
+        reading,
         fetchedAtMs: Date.now(),
         key: locationKey(location),
     };
-    return weather;
+    return reading;
 }
 
 /** Cached weather when fresh enough, otherwise a new fetch. */
-export async function freshWeather(location: Readonly<RunLocation>): Promise<Weather> {
+export async function freshWeather(location: Readonly<RunLocation>): Promise<WeatherReading> {
     const existing = getCachedWeather(location);
     if (existing && Date.now() - existing.fetchedAtMs < weatherMaxAgeMs) {
-        return existing.weather;
+        return existing.reading;
     }
     return await fetchWeather(location);
 }

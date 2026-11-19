@@ -10,8 +10,9 @@ export const defaultWeather: Readonly<MockWeather> = {
 };
 
 /**
- * Every test gets a fresh browser context (so empty storage), a mocked Open-Meteo, and fails on any
- * page error or console error (a CSP violation shows up as one).
+ * Every test gets a fresh browser context (so empty storage), a mocked Worker weather endpoint (an
+ * NWS reading) and Open-Meteo, and fails on any page error or console error (a CSP violation shows
+ * up as one).
  */
 export const test = base.extend<{weather: MockWeather; allowedConsoleErrors: string[]}>({
     /** Substrings of console errors a test expects (e.g. a mocked network failure). */
@@ -27,6 +28,19 @@ export const test = base.extend<{weather: MockWeather; allowedConsoleErrors: str
             const weather: MockWeather = {
                 ...defaultWeather,
             };
+            await page.route('**/api/weather?**', async (route) => {
+                await route.fulfill({
+                    json: {
+                        ok: true,
+                        weather: {
+                            ...weather,
+                        },
+                        source: 'nws',
+                        observedAt: '2026-11-19T13:35:00+00:00',
+                        station: 'KTST',
+                    },
+                });
+            });
             await page.route('https://api.open-meteo.com/**', async (route) => {
                 await route.fulfill({
                     json: {
@@ -101,4 +115,5 @@ export async function setLocationAndOpenToday(page: Page): Promise<void> {
             exact: true,
         }),
     ).toContainText('51°');
+    await expect(page.locator('.source')).toContainText(/Measured at KTST · \d{1,2}:\d{2}/);
 }

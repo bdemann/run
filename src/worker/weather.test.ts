@@ -108,30 +108,8 @@ async function run(replies: Record<string, Reply[]>, query = 'latitude=40.23&lon
 }
 
 describe(handleWeatherRequest.name, () => {
-    it('answers from Open-Meteo first', async () => {
+    it('answers from a fresh NWS observation first, retrying a 503 once and trying the next station', async () => {
         const {response, body, calls, seenHeaders} = await run({
-            'https://api.open-meteo.com': [openMeteoBody],
-        });
-        assert.strictEquals(response.status, 200);
-        assert.strictEquals(response.headers.get('cache-control'), 'no-store');
-        assert.deepEquals(body, {
-            ok: true,
-            weather: {
-                temperatureF: 50,
-                feelsLikeF: 46,
-                windMph: 3,
-            },
-            source: 'open-meteo',
-        });
-        assert.strictEquals(calls.length, 1);
-        assert.deepEquals(seenHeaders[0], {
-            'User-Agent': 'run-log (github.com/bdemann/run)',
-        });
-    });
-
-    it('falls back to the NWS, retrying a 503 once and trying the next station', async () => {
-        const {response, body, calls} = await run({
-            'https://api.open-meteo.com': ['throw'],
             'https://api.weather.gov/points': [
                 503,
                 pointBody,
@@ -141,6 +119,7 @@ describe(handleWeatherRequest.name, () => {
             'https://api.weather.gov/stations/KHCR': [goodObservation],
         });
         assert.strictEquals(response.status, 200);
+        assert.strictEquals(response.headers.get('cache-control'), 'no-store');
         assert.deepEquals(body, {
             ok: true,
             weather: {
@@ -149,8 +128,51 @@ describe(handleWeatherRequest.name, () => {
                 windMph: 0,
             },
             source: 'nws',
+            observedAt: '2026-11-17T15:56:00+00:00',
+            station: 'KHCR',
         });
         assert.strictEquals(calls.filter((url) => url.includes('/points/')).length, 2);
+        assert.isFalse(calls.some((url) => url.includes('open-meteo')));
+        assert.deepEquals(seenHeaders[0], {
+            'User-Agent': 'run-log (github.com/bdemann/run)',
+        });
+    });
+
+    it('falls back to Open-Meteo when the NWS observation is stale', async () => {
+        const {response, body} = await run({
+            'https://api.weather.gov/points': [pointBody],
+            [stationsUrl]: [stationsBody],
+            'https://api.weather.gov/stations': [
+                {
+                    properties: {
+                        ...goodObservation.properties,
+                        timestamp: '2026-11-17T14:00:00+00:00',
+                    },
+                },
+            ],
+            'https://api.open-meteo.com': [openMeteoBody],
+        });
+        assert.strictEquals(response.status, 200);
+        assert.deepEquals(body, {
+            ok: true,
+            weather: {
+                temperatureF: 50,
+                feelsLikeF: 46,
+                windMph: 3,
+            },
+            source: 'open-meteo',
+            observedAt: null,
+            station: null,
+        });
+    });
+
+    it('falls back to Open-Meteo when the NWS fails outright', async () => {
+        const {response, body} = await run({
+            'https://api.weather.gov/points': [503],
+            'https://api.open-meteo.com': [openMeteoBody],
+        });
+        assert.strictEquals(response.status, 200);
+        assert.strictEquals(body['source'], 'open-meteo');
     });
 
     it('gives up with a 502 when every source fails', async () => {

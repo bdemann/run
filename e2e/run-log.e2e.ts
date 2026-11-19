@@ -185,24 +185,17 @@ test('too cold: a miserable run at 30 means stay inside at 25', async ({page, we
     await expect(page.locator('.advice')).toContainText('At 30°F you said it was miserable');
 });
 
-test('falls back to the Worker when Open-Meteo is unreachable, then offers Retry', async ({
+test('falls back to Open-Meteo when the Worker fails, then offers Retry', async ({
     page,
     allowedConsoleErrors,
 }) => {
     allowedConsoleErrors.push('Failed to load resource');
-    await page.route('https://api.open-meteo.com/**', async (route) => {
-        await route.abort('timedout');
-    });
     await page.route('**/api/weather?**', async (route) => {
         await route.fulfill({
+            status: 502,
             json: {
-                ok: true,
-                weather: {
-                    temperatureF: 38,
-                    feelsLikeF: 33,
-                    windMph: 6,
-                },
-                source: 'nws',
+                ok: false,
+                error: 'No weather source answered.',
             },
         });
     });
@@ -218,17 +211,12 @@ test('falls back to the Worker when Open-Meteo is unreachable, then offers Retry
         page.getByLabel('Temperature', {
             exact: true,
         }),
-    ).toContainText('38°');
+    ).toContainText('51°');
+    await expect(page.locator('.source')).toHaveText('Model estimate (Open-Meteo)');
 
     /** Every source failing shows the error, Retry and the typed temperature. */
-    await page.route('**/api/weather?**', async (route) => {
-        await route.fulfill({
-            status: 502,
-            json: {
-                ok: false,
-                error: 'No weather source answered.',
-            },
-        });
+    await page.route('https://api.open-meteo.com/**', async (route) => {
+        await route.abort('timedout');
     });
     await page.reload();
     await page

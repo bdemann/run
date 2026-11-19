@@ -80,7 +80,7 @@ function initialDraft({mode, runId}: Readonly<{mode: RunFormMode; runId?: string
         };
     } else {
         const location = data.settings.location;
-        const weather = location ? getCachedWeather(location)?.weather : undefined;
+        const weather = location ? getCachedWeather(location)?.reading.weather : undefined;
         base = {
             startedAt: isoToInputValue(getNowInIsoString()),
             durationMinutes: '',

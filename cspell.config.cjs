@@ -14,6 +14,7 @@ module.exports = {
     words: [
         ...baseConfig.words,
         'bdemann',
+        'KTST',
         'Cloudflare',
         'demann',
         'enterkeyhint',
