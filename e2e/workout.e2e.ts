@@ -24,6 +24,8 @@ test('baseline test, then a training workout shows in recent workouts', async ({
 
     const inputs = page.getByLabel('As many as you can with good form');
     await expect(inputs).toHaveCount(5);
+    /** Someone who can already do full pushups starts the baseline there. */
+    await page.getByLabel('Variation').first().selectOption('full');
     for (let index = 0; index < 5; index++) {
         await inputs.nth(index).fill('10');
     }
@@ -52,6 +54,7 @@ test('baseline test, then a training workout shows in recent workouts', async ({
             exact: true,
         }),
     ).toBeVisible();
+    await expect(page.locator('p.variation').first()).toHaveText('Pushup');
     /** A workout in progress survives a reload. */
     await page.reload();
     const sixes = page.getByRole('button', {

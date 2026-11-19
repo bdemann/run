@@ -10,11 +10,13 @@ import {
 import {describeClothing} from '../../data/clothing.js';
 import {formatElapsed} from '../../data/elapsed.js';
 import {feelingShortLabels} from '../../data/feelings.js';
+import {describeWeek} from '../../data/goal-plan.js';
 import {parseNumber} from '../../data/parse-number.js';
 import {type ActiveRun, type UserData} from '../../data/shapes.js';
 import {type Weather, type WeatherReading} from '../../data/weather.js';
+import {sessionsInRange} from '../../data/workouts.js';
 import {goTo} from '../../router.js';
-import {formatClockTime, formatRunDate} from '../dates.js';
+import {currentWeekRangeMs, formatClockTime, formatRunDate} from '../dates.js';
 import {diagnosticLog} from '../diagnostics.js';
 import {getRunStore} from '../storage.js';
 import {screenStyles} from '../styles.js';
@@ -442,6 +444,15 @@ export const TodayScreen = defineElement()({
             </button>
             <button class="link" ${listen('click', () => goTo(['log']))}>
                 Log a run I already did
+            </button>
+            <button class="link week" ${listen('click', () => goTo(['goals']))}>
+                ${describeWeek(
+                    sessionsInRange({
+                        runs: data.runs,
+                        workouts: data.workouts,
+                        ...currentWeekRangeMs(),
+                    }),
+                )}
             </button>
         `;
     },

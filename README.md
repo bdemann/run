@@ -16,7 +16,10 @@ go outside at all?**
     later run at that temperature or colder goes OK.
 -   **Log a run I already did** adds a run after the fact. **Runs** lists every run, coldest first.
 -   **Workout** is a short bodyweight circuit: a baseline test first, then sets that grow a rep at a
-    time, one tap per set. Finishing shows what to do next time.
+    time, one tap per set. Finishing shows what to do next time. The baseline lets you pick a
+    harder variation per exercise.
+-   **Goals** (from the Workout screen or the "2 of 3 this week" line on Today) tracks a target for
+    an exercise and shows progress, a deadline and when you reached it.
 
 Run data lives only in the browser (localStorage); **Settings** exports and imports it as JSON.
 

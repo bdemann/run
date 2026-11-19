@@ -2,7 +2,7 @@ import {type FullSpaRoute, PathTree, SpaRouter} from 'spa-router-vir';
 
 /**
  * Pages: `/` (Today: weather, advice, start or the run in progress), `/finish` (finish the run in
- * progress), `/workout` (bodyweight workouts), `/log` (log a run after the fact), `/runs`
+ * progress), `/workout` (bodyweight workouts), `/goals`, `/log` (log a run after the fact), `/runs`
  * (history), `/runs/:id` (edit a run), `/settings`, `/about` and `/feedback`. Unknown paths are
  * sanitized back to `/`.
  */
@@ -11,6 +11,7 @@ const pathTree = new PathTree({
     children: {
         finish: {},
         workout: {},
+        goals: {},
         log: {},
         runs: {
             allowBare: true,
@@ -42,6 +43,7 @@ export type Screen =
     | 'today'
     | 'finish'
     | 'workout'
+    | 'goals'
     | 'log'
     | 'history'
     | 'edit'
@@ -60,6 +62,7 @@ export function screenForRoute(route: Readonly<Pick<RunRoute, 'paths'>>): Screen
     } else if (
         first === 'finish' ||
         first === 'workout' ||
+        first === 'goals' ||
         first === 'log' ||
         first === 'settings' ||
         first === 'about' ||
