@@ -22,9 +22,13 @@ export function currentVariationId({
     return exercise.variations[0]?.id ?? '';
 }
 
-/** True when any exercise has never been trained or tested, so the first workout is a baseline. */
+/**
+ * True when no exercise has been trained or tested yet, so the first workout is a baseline. An
+ * exercise skipped in the baseline is picked up at the next retest, not by forcing another
+ * baseline.
+ */
 export function needsBaseline(data: PlanData): boolean {
-    return allExercises(data).some((exercise) => {
+    return allExercises(data).every((exercise) => {
         return (
             suggestNext({
                 exercise,

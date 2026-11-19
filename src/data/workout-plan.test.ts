@@ -149,7 +149,7 @@ describe(currentVariationId.name, () => {
 });
 
 describe(needsBaseline.name, () => {
-    it('is true until every exercise has history', () => {
+    it('is true only while no exercise has history', () => {
         assert.isTrue(
             needsBaseline({
                 exercises: [],
@@ -160,6 +160,25 @@ describe(needsBaseline.name, () => {
             needsBaseline({
                 exercises: [],
                 workouts: [fullTest()],
+            }),
+        );
+        assert.isFalse(
+            needsBaseline({
+                exercises: [],
+                workouts: [
+                    testWorkout({
+                        id: 'partial',
+                        isTest: true,
+                        sets: [
+                            testSet({
+                                exerciseId: pushup.id,
+                                variationId: 'knee',
+                                target: 0,
+                                value: 12,
+                            }),
+                        ],
+                    }),
+                ],
             }),
         );
     });
