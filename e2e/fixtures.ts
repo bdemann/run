@@ -91,7 +91,10 @@ export const test = base.extend<{weather: MockWeather; allowedConsoleErrors: str
     ],
 });
 
-export async function openTab(page: Page, label: 'Today' | 'Runs' | 'Settings'): Promise<void> {
+export async function openTab(
+    page: Page,
+    label: 'Today' | 'Workout' | 'Runs' | 'Settings',
+): Promise<void> {
     await page
         .locator('kit-bottom-nav')
         .getByText(label, {

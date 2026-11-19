@@ -15,6 +15,8 @@ go outside at all?**
 -   Rate a run **Miserable** and every temperature at or below it says _don't go outside_, until a
     later run at that temperature or colder goes OK.
 -   **Log a run I already did** adds a run after the fact. **Runs** lists every run, coldest first.
+-   **Workout** is a short bodyweight circuit: a baseline test first, then sets that grow a rep at a
+    time, one tap per set. Finishing shows what to do next time.
 
 Run data lives only in the browser (localStorage); **Settings** exports and imports it as JSON.
 
