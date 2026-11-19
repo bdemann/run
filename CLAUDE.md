@@ -67,12 +67,16 @@ Never run remote wrangler commands (`--remote`, `deploy`, `secret put`); CI depl
 -   `src/ui/`: element-vir 27 elements. `elements/run-app.element.ts` is the shell (app-kit
     `BottomNav`, `SlideDrawer`, `AboutPage`, `FeedbackPage`). `storage.ts` puts the document in
     localStorage via `@electrovir/local-storage-client`. `weather-client.ts` does the fetching.
--   `src/router.ts`: spa-router-vir routes `/`, `/finish`, `/log`, `/runs`, `/runs/:id`,
+-   `src/ui/elements/workout-screen.element.ts`: the Workout tab (start, one-tap sets, test inputs,
+    finish summary, recent workouts). Its pure helpers (`planWorkout`, `finishedWorkout`,
+    `describeNextTime`, goals reached) live in `src/data/workout-plan.ts`.
+-   `src/router.ts`: spa-router-vir routes `/`, `/finish`, `/log`, `/workout`, `/runs`, `/runs/:id`,
     `/settings`, `/about`, `/feedback`.
 -   `src/ui/diagnostics.ts`: the app-kit diagnostic log (`diagnosticLog.log(event, details)`), attached to
     feedback when the person ticks "Attach diagnostic logs". **Privacy rule: log event names and error
     kinds only (`step`, `reason`, `ms`, status codes). Never coordinates, place names, notes or
-    clothing.** Events: `weather-ok`, `error`, `storage-error`, `run-start`, `run-finish`, `run-cancel`.
+    clothing.** Events: `weather-ok`, `error`, `storage-error`, `run-start`, `run-finish`, `run-cancel`,
+    `workout-start` (`test`: yes/no), `workout-finish` (`sets`: a count), `workout-cancel`. Never exercise values.
 -   `src/worker/`: Cloudflare Worker: https redirect, `/api/health` (About page), `/api/feedback`
     (app-kit `handleFeedbackRequest`, no sign-in, honeypot on), security headers (CSP allows
     `connect-src` to Open-Meteo only), static assets. Run data never reaches the server.

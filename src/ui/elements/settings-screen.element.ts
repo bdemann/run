@@ -150,10 +150,13 @@ export const SettingsScreen = defineElement()({
 
         async function importFile(file: File) {
             try {
-                const {imported, dropped} = store.importData(JSON.parse(await file.text()));
-                const skipped = dropped ? ` (${dropped} unreadable ones skipped)` : '';
+                const {imported, dropped, importedWorkouts, droppedWorkouts} = store.importData(
+                    JSON.parse(await file.text()),
+                );
+                const skippedCount = dropped + droppedWorkouts;
+                const skipped = skippedCount ? ` (${skippedCount} unreadable ones skipped)` : '';
                 updateState({
-                    status: `Imported ${imported} runs${skipped}.`,
+                    status: `Imported ${imported} runs and ${importedWorkouts} workouts${skipped}.`,
                 });
             } catch (error) {
                 updateState({

@@ -2,13 +2,15 @@ import {type FullSpaRoute, PathTree, SpaRouter} from 'spa-router-vir';
 
 /**
  * Pages: `/` (Today: weather, advice, start or the run in progress), `/finish` (finish the run in
- * progress), `/log` (log a run after the fact), `/runs` (history), `/runs/:id` (edit a run),
- * `/settings`, `/about` and `/feedback`. Unknown paths are sanitized back to `/`.
+ * progress), `/workout` (bodyweight workouts), `/log` (log a run after the fact), `/runs`
+ * (history), `/runs/:id` (edit a run), `/settings`, `/about` and `/feedback`. Unknown paths are
+ * sanitized back to `/`.
  */
 const pathTree = new PathTree({
     allowBare: true,
     children: {
         finish: {},
+        workout: {},
         log: {},
         runs: {
             allowBare: true,
@@ -39,6 +41,7 @@ export const router = new SpaRouter<RunPaths, undefined, undefined>({
 export type Screen =
     | 'today'
     | 'finish'
+    | 'workout'
     | 'log'
     | 'history'
     | 'edit'
@@ -56,6 +59,7 @@ export function screenForRoute(route: Readonly<Pick<RunRoute, 'paths'>>): Screen
         return second ? 'edit' : 'history';
     } else if (
         first === 'finish' ||
+        first === 'workout' ||
         first === 'log' ||
         first === 'settings' ||
         first === 'about' ||
