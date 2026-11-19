@@ -14,7 +14,7 @@ import {
     parseNwsObservation,
     parseNwsPoint,
     parseNwsStations,
-    parseProxyWeather,
+    parseProxyReading,
     weatherProxyUrl,
 } from './weather.js';
 
@@ -181,17 +181,65 @@ describe(weatherProxyUrl.name, () => {
     });
 });
 
-describe(parseProxyWeather.name, () => {
-    it('reads the three numbers or nothing', () => {
-        const weather = {
-            temperatureF: 1,
-            feelsLikeF: 2,
-            windMph: 3,
-        };
-        assert.deepEquals(parseProxyWeather(weather), weather);
+describe(parseProxyReading.name, () => {
+    const weather = {
+        temperatureF: 1,
+        feelsLikeF: 2,
+        windMph: 3,
+    };
+
+    it('reads an NWS and an Open-Meteo answer', () => {
+        assert.deepEquals(
+            parseProxyReading({
+                ok: true,
+                weather,
+                source: 'nws',
+                observedAt: '2026-11-17T16:00:00+00:00',
+                station: 'KPVU',
+            }),
+            {
+                weather,
+                source: 'nws',
+                observedAt: '2026-11-17T16:00:00+00:00',
+                station: 'KPVU',
+            },
+        );
+        assert.deepEquals(
+            parseProxyReading({
+                ok: true,
+                weather,
+                source: 'open-meteo',
+                observedAt: null,
+                station: null,
+            }),
+            {
+                weather,
+                source: 'open-meteo',
+                observedAt: null,
+                station: null,
+            },
+        );
+    });
+
+    it('rejects a missing weather or an unknown source', () => {
         assert.isUndefined(
-            parseProxyWeather({
-                temperatureF: 1,
+            parseProxyReading({
+                source: 'nws',
+            }),
+        );
+        assert.deepEquals(
+            parseProxyReading({
+                weather,
+                source: 'nws',
+            })?.station,
+            null,
+        );
+        assert.isUndefined(
+            parseProxyReading({
+                weather,
+                source: 'mystery',
+                observedAt: null,
+                station: null,
             }),
         );
     });
@@ -287,11 +335,13 @@ describe(parseNwsStations.name, () => {
 
 describe(parseNwsObservation.name, () => {
     it('reads a good observation, using wind chill', () => {
-        const weather = parseNwsObservation({
+        const reading = parseNwsObservation({
             json: observation(),
             nowMs,
         });
-        assert.isDefined(weather);
+        assert.isDefined(reading);
+        assert.strictEquals(reading.observedAt, '2026-11-17T15:56:00+00:00');
+        const {weather} = reading;
         assert.isTrue(Math.abs(weather.temperatureF - 34) < 0.1);
         assert.isTrue(Math.abs(weather.feelsLikeF - 27.3) < 0.1);
         assert.isTrue(Math.abs(weather.windMph - 6.93) < 0.01);
@@ -309,7 +359,7 @@ describe(parseNwsObservation.name, () => {
             }),
             nowMs,
         });
-        assert.strictEquals(heat?.feelsLikeF, 104);
+        assert.strictEquals(heat?.weather.feelsLikeF, 104);
         const plain = parseNwsObservation({
             json: observation({
                 windChill: {
@@ -321,8 +371,8 @@ describe(parseNwsObservation.name, () => {
             }),
             nowMs,
         });
-        assert.strictEquals(plain?.feelsLikeF, plain?.temperatureF);
-        assert.strictEquals(plain?.windMph, 0);
+        assert.strictEquals(plain?.weather.feelsLikeF, plain?.weather.temperatureF);
+        assert.strictEquals(plain?.weather.windMph, 0);
     });
 
     it('copes with a missing wind chill entirely', () => {
@@ -337,7 +387,7 @@ describe(parseNwsObservation.name, () => {
             },
             nowMs,
         });
-        assert.strictEquals(weather?.feelsLikeF, 32);
+        assert.strictEquals(weather?.weather.feelsLikeF, 32);
     });
 
     it('rejects null temperature, stale or bad timestamps and wrong shapes', () => {
@@ -354,7 +404,7 @@ describe(parseNwsObservation.name, () => {
         assert.isUndefined(
             parseNwsObservation({
                 json: observation({
-                    timestamp: '2026-11-17T14:00:00+00:00',
+                    timestamp: '2026-11-17T14:50:00+00:00',
                 }),
                 nowMs,
             }),

@@ -6,7 +6,7 @@ import {
     parseNwsObservation,
     parseNwsPoint,
     parseNwsStations,
-    type Weather,
+    type WeatherReading,
 } from '../data/weather.js';
 
 /** NWS rejects requests without a descriptive `User-Agent`. */
@@ -91,7 +91,7 @@ async function nwsWeather({
     coordinates: Coordinates;
     fetchFunction: FetchFunction;
     nowMs: number;
-}>): Promise<Weather | undefined> {
+}>): Promise<WeatherReading | undefined> {
     const stationsUrl = parseNwsPoint(
         await fetchJson({
             fetchFunction,
@@ -110,7 +110,7 @@ async function nwsWeather({
         }),
     );
     for (const station of stations) {
-        const weather = parseNwsObservation({
+        const observation = parseNwsObservation({
             json: await fetchJson({
                 fetchFunction,
                 url: nwsLatestObservationUrl(station),
@@ -118,16 +118,23 @@ async function nwsWeather({
             }),
             nowMs,
         });
-        if (weather) {
-            return weather;
+        if (observation) {
+            return {
+                weather: observation.weather,
+                source: 'nws',
+                observedAt: observation.observedAt,
+                station,
+            };
         }
     }
     return undefined;
 }
 
 /**
- * `GET /api/weather?latitude=&longitude=`: Open-Meteo first, then the National Weather Service. The
- * coordinates are only forwarded to those two services. They are never logged or stored.
+ * `GET /api/weather?latitude=&longitude=`: a National Weather Service station measurement first (at
+ * most 90 minutes old), then Open-Meteo's model estimate. The answer says which one it was
+ * (`source`), when it was observed and by which station. The coordinates are only forwarded to
+ * those two services. They and the station are never logged or stored.
  */
 export async function handleWeatherRequest({
     request,
@@ -148,23 +155,6 @@ export async function handleWeatherRequest({
             400,
         );
     }
-    const openMeteo = parseForecast(
-        await fetchJson({
-            fetchFunction,
-            url: forecastUrl(coordinates),
-            retryOnServerError: false,
-        }),
-    );
-    if (openMeteo) {
-        return jsonResponse(
-            {
-                ok: true,
-                weather: openMeteo,
-                source: 'open-meteo',
-            },
-            200,
-        );
-    }
     const nws = await nwsWeather({
         coordinates,
         fetchFunction,
@@ -174,8 +164,29 @@ export async function handleWeatherRequest({
         return jsonResponse(
             {
                 ok: true,
-                weather: nws,
-                source: 'nws',
+                ...nws,
+            },
+            200,
+        );
+    }
+    const openMeteo = parseForecast(
+        await fetchJson({
+            fetchFunction,
+            url: forecastUrl(coordinates),
+            retryOnServerError: false,
+        }),
+    );
+    if (openMeteo) {
+        const reading: WeatherReading = {
+            weather: openMeteo,
+            source: 'open-meteo',
+            observedAt: null,
+            station: null,
+        };
+        return jsonResponse(
+            {
+                ok: true,
+                ...reading,
             },
             200,
         );
