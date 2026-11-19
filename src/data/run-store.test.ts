@@ -3,6 +3,7 @@ import {describe, it} from 'node:test';
 import {feelings} from './feelings.js';
 import {createMemoryBackend, RunStore} from './run-store.js';
 import {testRun} from './test-runs.js';
+import {testGoal, testSet, testWorkout} from './test-workouts.js';
 import {emptyUserData} from './user-data.js';
 
 const run51 = testRun({
@@ -118,8 +119,101 @@ describe(RunStore.name, () => {
             {
                 imported: 1,
                 dropped: 1,
+                importedWorkouts: 0,
+                droppedWorkouts: 0,
             },
         );
         assert.deepEquals(store.getData().runs, [run51]);
+    });
+
+    it('runs the workout flow and marks achieved goals', () => {
+        const store = new RunStore(createMemoryBackend());
+        let notified = 0;
+        store.subscribe(() => notified++);
+        const active = {
+            startedAt: '2026-11-17T13:00:00.000Z',
+            isTest: false,
+            sets: [
+                testSet({
+                    variationId: 'full',
+                    value: 0,
+                }),
+            ],
+        };
+        store.startWorkout(active);
+        assert.deepEquals(store.getData().activeWorkout, active);
+        store.updateActiveWorkout({
+            ...active,
+            isTest: true,
+        });
+        assert.isTrue(store.getData().activeWorkout?.isTest);
+        store.cancelWorkout();
+        assert.isTrue(store.getData().activeWorkout == null);
+
+        store.saveGoal(
+            testGoal({
+                id: 'hit',
+            }),
+        );
+        store.saveGoal(
+            testGoal({
+                id: 'miss',
+                target: 99,
+            }),
+        );
+        store.saveGoal(
+            testGoal({
+                id: 'miss',
+                target: 98,
+            }),
+        );
+        assert.strictEquals(store.getData().goals.length, 2);
+        store.startWorkout(active);
+        const workout = testWorkout({
+            id: 'w1',
+            sets: [
+                testSet({
+                    variationId: 'full',
+                    value: 20,
+                }),
+            ],
+        });
+        store.finishWorkout(workout);
+        store.finishWorkout(workout);
+        const data = store.getData();
+        assert.deepEquals(data.workouts, [workout]);
+        assert.isTrue(data.activeWorkout == null);
+        assert.strictEquals(
+            data.goals.find((goal) => goal.id === 'hit')?.achievedAt,
+            workout.startedAt,
+        );
+        assert.strictEquals(data.goals.find((goal) => goal.id === 'miss')?.achievedAt, null);
+
+        store.deleteWorkout('w1');
+        store.deleteGoal('hit');
+        assert.deepEquals(store.getData().workouts, []);
+        assert.deepEquals(
+            store.getData().goals.map((goal) => goal.id),
+            ['miss'],
+        );
+        assert.isTrue(notified > 5);
+    });
+
+    it('imports workouts and reports counts', () => {
+        const store = new RunStore(createMemoryBackend());
+        const workout = testWorkout({
+            id: 'w1',
+        });
+        const result = store.importData({
+            workouts: [
+                workout,
+                {
+                    id: 'bad',
+                },
+            ],
+        });
+        assert.strictEquals(result.importedWorkouts, 1);
+        assert.strictEquals(result.droppedWorkouts, 1);
+        assert.deepEquals(store.getData().workouts, [workout]);
     });
 });

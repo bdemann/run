@@ -1,5 +1,8 @@
 import {defineShape, enumShape, nullableShape} from 'object-shape-tester';
 import {feelings} from './feelings.js';
+import {activeWorkoutShape, exerciseShape, goalShape, workoutShape} from './workout-shapes.js';
+
+export * from './workout-shapes.js';
 
 /** Bump this and add a migration in `user-data.ts` for every breaking change to the stored data. */
 export const currentUserDataVersion = 1;
@@ -59,6 +62,11 @@ export const userDataShape = defineShape({
     runs: [runShape],
     activeRun: nullableShape(activeRunShape),
     settings: settingsShape,
+    /** Exercises beyond the built-ins (`exercises.ts`). */
+    exercises: [exerciseShape],
+    workouts: [workoutShape],
+    goals: [goalShape],
+    activeWorkout: nullableShape(activeWorkoutShape),
 });
 
 export type UserData = typeof userDataShape.runtimeType;

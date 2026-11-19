@@ -1,5 +1,15 @@
-import {type ActiveRun, type Run, type RunLocation, type UserData} from './shapes.js';
+import {allExercises} from './exercises.js';
+import {
+    type ActiveRun,
+    type ActiveWorkout,
+    type Goal,
+    type Run,
+    type RunLocation,
+    type UserData,
+    type Workout,
+} from './shapes.js';
 import {emptyUserData, mergeUserData, parseUserData} from './user-data.js';
+import {newlyAchievedGoals} from './workouts.js';
 
 /** Where the store keeps its one document. The browser uses localStorage (`src/ui/storage.ts`). */
 export type DocumentBackend = {
@@ -106,6 +116,76 @@ export class RunStore {
         });
     }
 
+    public startWorkout(activeWorkout: Readonly<ActiveWorkout>): void {
+        this.commit({
+            ...this.data,
+            activeWorkout: structuredClone(activeWorkout),
+        });
+    }
+
+    public updateActiveWorkout(activeWorkout: Readonly<ActiveWorkout>): void {
+        this.startWorkout(activeWorkout);
+    }
+
+    public cancelWorkout(): void {
+        this.commit({
+            ...this.data,
+            activeWorkout: null,
+        });
+    }
+
+    /**
+     * Saves a finished workout (replacing one with the same id), clears the workout in progress and
+     * marks goals it achieved.
+     */
+    public finishWorkout(workout: Readonly<Workout>): void {
+        const workouts = [
+            ...this.data.workouts.filter((existing) => existing.id !== workout.id),
+            structuredClone(workout),
+        ];
+        const achieved = newlyAchievedGoals({
+            goals: this.data.goals,
+            exercises: allExercises(this.data),
+            workouts,
+            nowIso: workout.startedAt,
+        });
+        this.commit({
+            ...this.data,
+            workouts,
+            goals: this.data.goals.map(
+                (goal) => achieved.find((done) => done.id === goal.id) ?? goal,
+            ),
+            activeWorkout: null,
+        });
+    }
+
+    public deleteWorkout(id: string): void {
+        this.commit({
+            ...this.data,
+            workouts: this.data.workouts.filter((workout) => workout.id !== id),
+        });
+    }
+
+    /** Adds a goal, or replaces the one with the same id. */
+    public saveGoal(goal: Readonly<Goal>): void {
+        this.commit({
+            ...this.data,
+            goals: [
+                ...this.data.goals.filter((existing) => existing.id !== goal.id),
+                {
+                    ...goal,
+                },
+            ],
+        });
+    }
+
+    public deleteGoal(id: string): void {
+        this.commit({
+            ...this.data,
+            goals: this.data.goals.filter((goal) => goal.id !== id),
+        });
+    }
+
     public setLocation(location: Readonly<RunLocation>): void {
         this.commit({
             ...this.data,
@@ -129,7 +209,12 @@ export class RunStore {
     }
 
     /** Merges an export file's contents in. Returns how many runs it had and how many were bad. */
-    public importData(raw: unknown): {imported: number; dropped: number} {
+    public importData(raw: unknown): {
+        imported: number;
+        dropped: number;
+        importedWorkouts: number;
+        droppedWorkouts: number;
+    } {
         const parsed = parseUserData(raw);
         this.commit(
             mergeUserData({
@@ -140,6 +225,8 @@ export class RunStore {
         return {
             imported: parsed.data.runs.length,
             dropped: parsed.droppedRuns,
+            importedWorkouts: parsed.data.workouts.length,
+            droppedWorkouts: parsed.droppedWorkouts,
         };
     }
 }

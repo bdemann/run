@@ -2,7 +2,9 @@ import {assert} from '@augment-vir/assert';
 import {describe, it} from 'node:test';
 import {feelings} from './feelings.js';
 import {testRun} from './test-runs.js';
+import {testGoal, testSet, testWorkout} from './test-workouts.js';
 import {emptyUserData, exportFilename, mergeUserData, parseUserData} from './user-data.js';
+import {measures} from './workout-shapes.js';
 
 const run51 = testRun({
     id: 'a',
@@ -15,6 +17,7 @@ describe(parseUserData.name, () => {
         assert.deepEquals(parseUserData('nope'), {
             data: emptyUserData(),
             droppedRuns: 0,
+            droppedWorkouts: 0,
         });
     });
 
@@ -66,6 +69,131 @@ describe(parseUserData.name, () => {
         });
         assert.isNull(parsed.data.activeRun);
         assert.isNull(parsed.data.settings.location);
+    });
+});
+
+describe('workout data', () => {
+    const exercise = {
+        id: 'plank',
+        name: 'Plank',
+        measure: measures.seconds,
+        variations: [
+            {
+                id: 'full',
+                name: 'Plank',
+            },
+        ],
+        cues: ['Straight'],
+        unlockedAt: null,
+    };
+    const workout = testWorkout({
+        id: 'w1',
+        sets: [
+            testSet({
+                value: 5,
+            }),
+        ],
+    });
+
+    it('loads old documents without workout fields', () => {
+        const parsed = parseUserData({
+            version: 1,
+            runs: [],
+            activeRun: null,
+            settings: {},
+        });
+        assert.deepEquals(parsed.data, emptyUserData());
+    });
+
+    it('keeps good workout records and drops bad ones one at a time', () => {
+        const active = {
+            startedAt: '2026-11-17T13:00:00.000Z',
+            isTest: false,
+            sets: [
+                testSet({
+                    value: 1,
+                }),
+            ],
+        };
+        const parsed = parseUserData({
+            exercises: [
+                exercise,
+                {
+                    id: 'bad',
+                },
+            ],
+            workouts: [
+                workout,
+                {
+                    ...workout,
+                    isTest: 'yes',
+                },
+            ],
+            goals: [
+                testGoal(),
+                {
+                    id: 'bad',
+                },
+            ],
+            activeWorkout: active,
+        });
+        assert.deepEquals(parsed.data.exercises, [exercise]);
+        assert.deepEquals(parsed.data.workouts, [workout]);
+        assert.deepEquals(parsed.data.goals, [testGoal()]);
+        assert.deepEquals(parsed.data.activeWorkout, active);
+        assert.strictEquals(parsed.droppedWorkouts, 1);
+        assert.isTrue(
+            parseUserData({
+                activeWorkout: {
+                    nope: 1,
+                },
+            }).data.activeWorkout == null,
+        );
+    });
+
+    it('merges by id with the imported copy winning and keeps the current active workout', () => {
+        const active = {
+            startedAt: '2026-11-17T13:00:00.000Z',
+            isTest: false,
+            sets: [],
+        };
+        const merged = mergeUserData({
+            current: {
+                ...emptyUserData(),
+                exercises: [exercise],
+                workouts: [workout],
+                goals: [testGoal()],
+                activeWorkout: active,
+            },
+            imported: {
+                ...emptyUserData(),
+                exercises: [
+                    {
+                        ...exercise,
+                        name: 'Plank!',
+                    },
+                ],
+                workouts: [
+                    {
+                        ...workout,
+                        isTest: true,
+                    },
+                    testWorkout({
+                        id: 'w2',
+                    }),
+                ],
+                goals: [
+                    testGoal({
+                        id: 'g2',
+                    }),
+                ],
+            },
+        });
+        assert.strictEquals(merged.exercises[0]?.name, 'Plank!');
+        assert.strictEquals(merged.workouts.length, 2);
+        assert.isTrue(merged.workouts[0]?.isTest);
+        assert.strictEquals(merged.goals.length, 2);
+        assert.deepEquals(merged.activeWorkout, active);
     });
 });
 

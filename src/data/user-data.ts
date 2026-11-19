@@ -2,11 +2,18 @@ import {removeDuplicates} from '@augment-vir/common';
 import {checkShape} from './shape-check.js';
 import {
     activeRunShape,
+    activeWorkoutShape,
     currentUserDataVersion,
+    exerciseShape,
+    goalShape,
     locationShape,
     runShape,
+    workoutShape,
+    type Exercise,
+    type Goal,
     type Run,
     type UserData,
+    type Workout,
 } from './shapes.js';
 
 export function emptyUserData(): UserData {
@@ -18,6 +25,10 @@ export function emptyUserData(): UserData {
             location: null,
             customClothing: [],
         },
+        exercises: [],
+        workouts: [],
+        goals: [],
+        activeWorkout: null,
     };
 }
 
@@ -35,6 +46,8 @@ export type ParsedUserData = {
     data: UserData;
     /** How many runs were unreadable and left out. */
     droppedRuns: number;
+    /** How many workouts were unreadable and left out. */
+    droppedWorkouts: number;
 };
 
 /**
@@ -45,6 +58,11 @@ export type ParsedUserData = {
 export function parseUserData(raw: unknown): ParsedUserData {
     const rawRuns = arrayField(raw, 'runs');
     const runs = rawRuns.filter((run): run is Run => checkShape(run, runShape));
+    const rawWorkouts = arrayField(raw, 'workouts');
+    const workouts = rawWorkouts.filter((workout): workout is Workout => {
+        return checkShape(workout, workoutShape);
+    });
+    const activeWorkout = field(raw, 'activeWorkout');
     const activeRun = field(raw, 'activeRun');
     const settings = field(raw, 'settings');
     const location = field(settings, 'location');
@@ -59,9 +77,36 @@ export function parseUserData(raw: unknown): ParsedUserData {
                     (item): item is string => typeof item === 'string' && item.trim() !== '',
                 ),
             },
+            exercises: arrayField(raw, 'exercises').filter((exercise): exercise is Exercise => {
+                return checkShape(exercise, exerciseShape);
+            }),
+            workouts,
+            goals: arrayField(raw, 'goals').filter((goal): goal is Goal => {
+                return checkShape(goal, goalShape);
+            }),
+            activeWorkout: checkShape(activeWorkout, activeWorkoutShape) ? activeWorkout : null,
         },
         droppedRuns: rawRuns.length - runs.length,
+        droppedWorkouts: rawWorkouts.length - workouts.length,
     };
+}
+
+function mergeById<Item extends {id: string}>({
+    current,
+    imported,
+}: Readonly<{current: ReadonlyArray<Item>; imported: ReadonlyArray<Item>}>): Item[] {
+    const byId = new Map(
+        current.map((item) => {
+            return [
+                item.id,
+                item,
+            ];
+        }),
+    );
+    for (const item of imported) {
+        byId.set(item.id, item);
+    }
+    return [...byId.values()];
 }
 
 /**
@@ -87,6 +132,19 @@ export function mergeUserData({
     return {
         version: currentUserDataVersion,
         runs: [...runsById.values()],
+        exercises: mergeById({
+            current: current.exercises,
+            imported: imported.exercises,
+        }),
+        workouts: mergeById({
+            current: current.workouts,
+            imported: imported.workouts,
+        }),
+        goals: mergeById({
+            current: current.goals,
+            imported: imported.goals,
+        }),
+        activeWorkout: current.activeWorkout,
         activeRun: current.activeRun,
         settings: {
             location: current.settings.location ?? imported.settings.location,
