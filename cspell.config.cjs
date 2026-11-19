@@ -13,6 +13,7 @@ module.exports = {
     ],
     words: [
         ...baseConfig.words,
+        'notarget',
         'bdemann',
         'KTST',
         'Cloudflare',

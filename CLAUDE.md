@@ -42,6 +42,13 @@ Never run remote wrangler commands (`--remote`, `deploy`, `secret put`); CI depl
 `main` once the repo variable `CLOUDFLARE_DEPLOY` is `true`. If `dist/` is deleted while
 `wrangler dev` runs, restart it (it stops serving the new folder).
 
+### Installing a just-published package
+
+`.npmrc` sets `min-release-age=5` (days), and npm 11 ignores its `min-release-age-exclude[]` list,
+so even `@bdemann/*` and electrovir releases younger than 5 days fail with `notarget`. For a fresh
+`@bdemann/app-kit` (or other own/electrovir package) only, override it on that one command:
+`npm install @bdemann/app-kit@<version> --save-exact --min-release-age=0`. Leave `.npmrc` alone.
+
 ## Architecture
 
 -   `src/data/`: pure logic and object-shape-tester shapes, tested to 100%. No DOM.
