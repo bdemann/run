@@ -4,6 +4,7 @@ import {appName, repoUrl} from '../../data/app-info.js';
 import {editRunId, goTo, router, screenForRoute, type RunRoute, type Screen} from '../../router.js';
 import {buildInfo} from '../build-info.js';
 import {diagnosticLog} from '../diagnostics.js';
+import {syncGpsRecorder} from '../gps-recorder.js';
 import {
     feedbackContactStorageKey,
     feedbackDraftStorageKey,
@@ -228,10 +229,14 @@ export const RunApp = defineElement()({
             menuOpen: false,
             runtime: {
                 removeRouteListener: undefined as (() => void) | undefined,
+                unsubscribeStore: undefined as (() => void) | undefined,
             },
         };
     },
     init({state, updateState}) {
+        /** Resumes a route recording after a reload and stops it when the run ends. */
+        syncGpsRecorder();
+        state.runtime.unsubscribeStore = getRunStore().subscribe(syncGpsRecorder);
         state.runtime.removeRouteListener = router.listen(false, (route) => {
             if (screenForRoute(route) !== 'feedback') {
                 rememberPageBeforeFeedback(globalThis.location.pathname);
@@ -245,6 +250,7 @@ export const RunApp = defineElement()({
     },
     cleanup({state}) {
         state.runtime.removeRouteListener?.();
+        state.runtime.unsubscribeStore?.();
     },
     render({state, updateState}) {
         const screen = screenForRoute(state.route);

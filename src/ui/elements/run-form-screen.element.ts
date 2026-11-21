@@ -3,11 +3,13 @@ import {css, defineElement, html, listen, nothing} from 'element-vir';
 import {addClothingItem, clothingGroups, prefillForTemperature} from '../../data/clothing.js';
 import {minutesSince} from '../../data/elapsed.js';
 import {feelingLabels, feelingOrder, type Feeling} from '../../data/feelings.js';
+import {formatMiles, paceText, simplifyPoints, trackDistanceMiles} from '../../data/gps.js';
 import {parseNumber} from '../../data/parse-number.js';
-import {type Run} from '../../data/shapes.js';
+import {type RecordedPoint, type Route, type Run} from '../../data/shapes.js';
 import {goTo} from '../../router.js';
 import {inputValueToIso, isoToInputValue} from '../dates.js';
 import {diagnosticLog} from '../diagnostics.js';
+import {renderRoutePreview} from '../route-preview.js';
 import {getRunStore} from '../storage.js';
 import {screenStyles} from '../styles.js';
 import {getCachedWeather} from '../weather-client.js';
@@ -26,7 +28,17 @@ type Draft = {
     clothing: string[];
     feeling: Feeling | undefined;
     notes: string;
+    /** A saved route's id, or `''` for none. */
+    routeId: string;
+    distanceMiles: string;
+    /** Name to save the recorded track under; empty means do not save it as a route. */
+    routeName: string;
 };
+
+/** A distance as typed: two decimals at most, no trailing zeros. */
+function distanceText(miles: number | null | undefined): string {
+    return miles == undefined ? '' : String(Math.round(miles * 100) / 100);
+}
 
 function numberText(value: number | null | undefined): string {
     return value == undefined ? '' : String(Math.round(value));
@@ -36,6 +48,7 @@ function numberText(value: number | null | undefined): string {
 function initialDraft({mode, runId}: Readonly<{mode: RunFormMode; runId?: string | undefined}>): {
     draft: Draft | undefined;
     note: string | undefined;
+    recorded: RecordedPoint[];
 } {
     const store = getRunStore();
     const data = store.getData();
@@ -52,20 +65,28 @@ function initialDraft({mode, runId}: Readonly<{mode: RunFormMode; runId?: string
                 clothing: [...run.clothing],
                 feeling: run.feeling,
                 notes: run.notes,
+                routeId: run.routeId ?? '',
+                distanceMiles: distanceText(run.distanceMiles),
+                routeName: '',
             },
             note: undefined,
+            recorded: [],
         };
     }
 
-    let base: Omit<Draft, 'clothing' | 'feeling' | 'notes' | 'id'>;
+    let base: Omit<Draft, 'clothing' | 'feeling' | 'notes' | 'id' | 'routeName'>;
+    let recorded: RecordedPoint[] = [];
     if (mode === 'finish') {
         const active = data.activeRun;
         if (!active) {
             return {
                 draft: undefined,
                 note: undefined,
+                recorded: [],
             };
         }
+        recorded = active.recording?.points ?? [];
+        const route = data.routes.find((existing) => existing.id === active.routeId);
         base = {
             startedAt: isoToInputValue(active.startedAt),
             durationMinutes: String(
@@ -77,6 +98,11 @@ function initialDraft({mode, runId}: Readonly<{mode: RunFormMode; runId?: string
             temperatureF: numberText(active.temperatureF),
             feelsLikeF: numberText(active.feelsLikeF),
             windMph: numberText(active.windMph),
+            routeId: route?.id ?? '',
+            distanceMiles:
+                recorded.length > 1
+                    ? distanceText(trackDistanceMiles(recorded))
+                    : distanceText(route?.distanceMiles),
         };
     } else {
         const location = data.settings.location;
@@ -87,6 +113,8 @@ function initialDraft({mode, runId}: Readonly<{mode: RunFormMode; runId?: string
             temperatureF: numberText(weather?.temperatureF),
             feelsLikeF: numberText(weather?.feelsLikeF),
             windMph: numberText(weather?.windMph),
+            routeId: '',
+            distanceMiles: '',
         };
     }
     const prefill = prefillForTemperature({
@@ -100,8 +128,14 @@ function initialDraft({mode, runId}: Readonly<{mode: RunFormMode; runId?: string
             clothing: prefill.clothing,
             feeling: prefill.feeling,
             notes: '',
+            routeName: '',
         },
         note: prefill.note,
+        recorded: recorded.map((point) => {
+            return {
+                ...point,
+            };
+        }),
     };
 }
 
@@ -172,6 +206,22 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
             text-align: left;
         }
 
+        .recorded {
+            flex-wrap: wrap;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .recorded label {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .recorded p {
+            flex-basis: 100%;
+        }
+
         .add-item {
             display: flex;
             gap: 6px;
@@ -179,10 +229,14 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
         }
     `,
     state({inputs}) {
-        const {draft, note} = initialDraft(inputs);
+        const {draft, note, recorded} = initialDraft(inputs);
         return {
             draft,
             note,
+            /** The GPS track recorded during this run (finish mode only). */
+            recorded,
+            /** Distance typed by hand: choosing a route no longer fills it in. */
+            distanceTouched: false,
             newItem: '',
             error: '',
             /** Clothing or feeling picked by hand: a new temperature no longer refills them. */
@@ -324,6 +378,23 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
                 });
                 return;
             }
+            const distanceMiles = parseNumber(draft.distanceMiles);
+            const routeName = draft.routeName.trim();
+            let routeId = draft.routeId || null;
+            if (state.recorded.length > 1 && routeName) {
+                const route: Route = {
+                    id: globalThis.crypto.randomUUID(),
+                    name: routeName,
+                    distanceMiles: Math.round(trackDistanceMiles(state.recorded) * 100) / 100,
+                    points: simplifyPoints(state.recorded),
+                    createdAt: getNowInIsoString(),
+                };
+                store.saveRoute(route);
+                routeId = route.id;
+                diagnosticLog.log('route-saved', {
+                    points: route.points.length,
+                });
+            }
             const run: Run = {
                 id: draft.id ?? globalThis.crypto.randomUUID(),
                 startedAt,
@@ -334,6 +405,8 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
                 clothing: draft.clothing,
                 feeling: draft.feeling,
                 notes: draft.notes.trim(),
+                routeId,
+                distanceMiles,
             };
             store.saveRun({
                 run,
@@ -351,6 +424,11 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
             edit: 'Edit run',
         };
 
+        const routes = store.getData().routes;
+        const pace = paceText({
+            distanceMiles: parseNumber(draft.distanceMiles),
+            durationMinutes: parseNumber(draft.durationMinutes),
+        });
         const groups = clothingGroups({
             customClothing: store.getData().settings.customClothing,
             selected: draft.clothing,
@@ -442,6 +520,89 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
                         />
                     </label>
                 </div>
+
+                <div class="row">
+                    <label>
+                        Route
+                        <select
+                            aria-label="Route"
+                            ${listen('change', (event) => {
+                                const routeId = (event.target as HTMLSelectElement).value;
+                                const route = routes.find((existing) => existing.id === routeId);
+                                change({
+                                    routeId,
+                                    ...(route && !state.distanceTouched
+                                        ? {
+                                              distanceMiles: distanceText(route.distanceMiles),
+                                          }
+                                        : {}),
+                                });
+                            })}
+                        >
+                            <option value="" ?selected=${draft.routeId === ''}>No route</option>
+                            ${routes.map((route) => {
+                                return html`
+                                    <option
+                                        value=${route.id}
+                                        ?selected=${draft.routeId === route.id}
+                                    >
+                                        ${route.name} · ${formatMiles(route.distanceMiles)}
+                                    </option>
+                                `;
+                            })}
+                        </select>
+                    </label>
+                    <label>
+                        Distance (mi)
+                        <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            .value=${draft.distanceMiles}
+                            ${listen('input', (event) => {
+                                updateState({
+                                    distanceTouched: true,
+                                });
+                                change({
+                                    distanceMiles: (event.target as HTMLInputElement).value,
+                                });
+                            })}
+                        />
+                    </label>
+                </div>
+                ${pace
+                    ? html`
+                          <p class="muted pace">${pace}</p>
+                      `
+                    : nothing}
+                ${state.recorded.length > 1
+                    ? html`
+                          <div class="card recorded">
+                              ${renderRoutePreview({
+                                  points: state.recorded,
+                                  size: 96,
+                              })}
+                              <label>
+                                  Save this route as
+                                  <input
+                                      type="text"
+                                      placeholder="River loop"
+                                      enterkeyhint="done"
+                                      .value=${draft.routeName}
+                                      ${listen('input', (event) => {
+                                          change({
+                                              routeName: (event.target as HTMLInputElement).value,
+                                          });
+                                      })}
+                                  />
+                              </label>
+                              <p class="muted">
+                                  Recorded ${formatMiles(trackDistanceMiles(state.recorded))}. Leave
+                                  the name empty to skip saving the route.
+                              </p>
+                          </div>
+                      `
+                    : nothing}
 
                 <fieldset>
                     <legend>What were you wearing?</legend>

@@ -85,11 +85,16 @@ so even `@bdemann/*` and electrovir releases younger than 5 days fail with `nota
     and end-of-day helpers are in `src/ui/dates.ts`.
 -   `src/router.ts`: spa-router-vir routes `/`, `/finish`, `/log`, `/workout`, `/goals`, `/runs`,
     `/runs/:id`, `/settings`, `/about`, `/feedback`.
+-   **Routes** (`src/data/gps.ts`, `src/ui/gps-recorder.ts`): record a route once with screen-on GPS
+    (Wake Lock + `watchPosition`), save it with a name, pick it on later runs for distance and pace.
+    The recording lives in `activeRun.recording` so it survives a reload; one app-wide recorder
+    starts/stops from `run-app` by watching the store. **Route points are precise locations: they
+    stay in the browser (localStorage and the export file) and are never sent or logged.**
 -   `src/ui/diagnostics.ts`: the app-kit diagnostic log (`diagnosticLog.log(event, details)`), attached to
     feedback when the person ticks "Attach diagnostic logs". **Privacy rule: log event names and error
-    kinds only (`step`, `reason`, `ms`, status codes). Never coordinates, place names, notes or
-    clothing.** Events: `weather-ok`, `error`, `storage-error`, `run-start`, `run-finish`, `run-cancel`,
-    `workout-start` (`test`: yes/no), `workout-finish` (`sets`: a count), `workout-cancel`, `goal-add`. Never exercise values.
+    kinds only (`step`, `reason`, `ms`, status codes). Never coordinates, place names, route points,
+    notes or clothing.** Events: `weather-ok`, `error`, `storage-error`, `run-start`, `run-finish`, `run-cancel`,
+    `workout-start` (`test`: yes/no), `workout-finish` (`sets`: a count), `workout-cancel`, `goal-add`, `route-record-start`, `route-saved` (`points`: a count). Never exercise values.
 -   `src/worker/`: Cloudflare Worker: https redirect, `/api/health` (About page), `/api/feedback`
     (app-kit `handleFeedbackRequest`, no sign-in, honeypot on), security headers (CSP allows
     `connect-src` to Open-Meteo only), static assets. Run data never reaches the server.

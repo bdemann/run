@@ -11,6 +11,7 @@ import {describeClothing} from '../../data/clothing.js';
 import {formatElapsed} from '../../data/elapsed.js';
 import {feelingShortLabels} from '../../data/feelings.js';
 import {describeWeek} from '../../data/goal-plan.js';
+import {formatMiles} from '../../data/gps.js';
 import {parseNumber} from '../../data/parse-number.js';
 import {type ActiveRun, type UserData} from '../../data/shapes.js';
 import {type Weather, type WeatherReading} from '../../data/weather.js';
@@ -18,9 +19,12 @@ import {sessionsInRange} from '../../data/workouts.js';
 import {goTo} from '../../router.js';
 import {currentWeekRangeMs, formatClockTime, formatRunDate} from '../dates.js';
 import {diagnosticLog} from '../diagnostics.js';
+import {gpsRecorder} from '../gps-recorder.js';
 import {getRunStore} from '../storage.js';
 import {screenStyles} from '../styles.js';
 import {fetchWeather, freshWeather, getCachedWeather} from '../weather-client.js';
+
+const recordNewRoute = 'record-new';
 
 type Runtime = {
     unsubscribe: (() => void) | undefined;
@@ -187,6 +191,14 @@ export const TodayScreen = defineElement()({
             background: var(--run-go-bg);
         }
 
+        .route-choice {
+            margin: 0 0 12px;
+        }
+
+        .recording {
+            margin-top: 8px;
+        }
+
         .running {
             text-align: center;
         }
@@ -205,6 +217,8 @@ export const TodayScreen = defineElement()({
             typedTemperature: '',
             loadingWeather: false,
             starting: false,
+            /** `''` for no route, a saved route's id, or {@link recordNewRoute}. */
+            routeChoice: '',
             nowMs: Date.now(),
             runtime: {
                 unsubscribe: undefined,
@@ -302,6 +316,15 @@ export const TodayScreen = defineElement()({
                 temperatureF: weather?.temperatureF ?? typedTemperatureF,
                 feelsLikeF: weather?.feelsLikeF ?? null,
                 windMph: weather?.windMph ?? null,
+                routeId: data.routes.some((route) => route.id === state.routeChoice)
+                    ? state.routeChoice
+                    : null,
+                recording:
+                    state.routeChoice === recordNewRoute
+                        ? {
+                              points: [],
+                          }
+                        : null,
             };
             getRunStore().startRun(activeRun);
             diagnosticLog.log('run-start', {
@@ -314,6 +337,7 @@ export const TodayScreen = defineElement()({
 
         if (data.activeRun) {
             const active = data.activeRun;
+            const activeRoute = data.routes.find((route) => route.id === active.routeId);
             return html`
                 <div class="card running">
                     <div class="muted">Running</div>
@@ -321,7 +345,12 @@ export const TodayScreen = defineElement()({
                         ${formatElapsed(state.nowMs - Date.parse(active.startedAt))}
                     </div>
                     <div class="muted">
-                        Started ${formatClockTime(active.startedAt)}
+                        ${activeRoute
+                            ? html`
+                                  ${activeRoute.name} ·
+                              `
+                            : nothing}Started
+                        ${formatClockTime(active.startedAt)}
                         ${active.temperatureF == undefined
                             ? nothing
                             : html`
@@ -329,8 +358,27 @@ export const TodayScreen = defineElement()({
                                   ${round(active.feelsLikeF)}°F
                               `}
                     </div>
+                    ${active.recording
+                        ? html`
+                              <div class="recording" role="status">
+                                  Recording route · ${formatMiles(gpsRecorder.getDistanceMiles())} ·
+                                  keep the screen on
+                              </div>
+                              ${gpsRecorder.note
+                                  ? html`
+                                        <div class="muted">${gpsRecorder.note}</div>
+                                    `
+                                  : nothing}
+                          `
+                        : nothing}
                 </div>
-                <button class="primary" ${listen('click', () => goTo(['finish']))}>
+                <button
+                    class="primary"
+                    ${listen('click', () => {
+                        gpsRecorder.flush();
+                        goTo(['finish']);
+                    })}
+                >
                     Finish run
                 </button>
                 <button
@@ -435,6 +483,32 @@ export const TodayScreen = defineElement()({
             <div class="card advice ${adviceTone(advice)}" aria-live="polite">
                 ${renderAdvice(advice, !!location, weather)}
             </div>
+            <label class="route-choice">
+                Route
+                <select
+                    aria-label="Route"
+                    ${listen('change', (event) => {
+                        updateState({
+                            routeChoice: (event.target as HTMLSelectElement).value,
+                        });
+                    })}
+                >
+                    <option value="" ?selected=${state.routeChoice === ''}>No route</option>
+                    ${data.routes.map((route) => {
+                        return html`
+                            <option value=${route.id} ?selected=${state.routeChoice === route.id}>
+                                ${route.name} · ${formatMiles(route.distanceMiles)}
+                            </option>
+                        `;
+                    })}
+                    <option
+                        value=${recordNewRoute}
+                        ?selected=${state.routeChoice === recordNewRoute}
+                    >
+                        Record a new route
+                    </option>
+                </select>
+            </label>
             <button
                 class="primary"
                 ?disabled=${state.starting}

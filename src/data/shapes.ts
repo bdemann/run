@@ -19,6 +19,41 @@ export const locationShape = defineShape({
 
 export type RunLocation = typeof locationShape.runtimeType;
 
+/** A saved route point, used only to draw the route. */
+export const routePointShape = defineShape({
+    latitude: 0,
+    longitude: 0,
+});
+
+export type RoutePoint = typeof routePointShape.runtimeType;
+
+/**
+ * A route recorded once with GPS and saved with a name. PRIVACY: points are precise locations and
+ * never leave the device (except in the export file the person saves).
+ */
+export const routeShape = defineShape({
+    id: '',
+    name: '',
+    distanceMiles: 0,
+    /** Simplified track (`simplifyPoints`). */
+    points: [routePointShape],
+    /** UTC ISO string. */
+    createdAt: '',
+});
+
+export type Route = typeof routeShape.runtimeType;
+
+/** One GPS fix kept while recording. */
+export const recordedPointShape = defineShape({
+    latitude: 0,
+    longitude: 0,
+    accuracyM: 0,
+    /** `Date.now()` when the fix arrived. */
+    atMs: 0,
+});
+
+export type RecordedPoint = typeof recordedPointShape.runtimeType;
+
 /** One finished run. */
 export const runShape = defineShape({
     /** Stable id (a UUID). */
@@ -34,6 +69,9 @@ export const runShape = defineShape({
     clothing: [''],
     feeling: feelingShape,
     notes: '',
+    /** Added later: old runs lack these keys (parsing fills `null`). */
+    routeId: nullableShape(''),
+    distanceMiles: nullableShape(0),
 });
 
 export type Run = typeof runShape.runtimeType;
@@ -44,6 +82,12 @@ export const activeRunShape = defineShape({
     temperatureF: nullableShape(0),
     feelsLikeF: nullableShape(0),
     windMph: nullableShape(0),
+    /** Added later: old documents lack these keys (parsing fills `null`). */
+    routeId: nullableShape(''),
+    /** Set while a route is being recorded; survives the app being swiped away. */
+    recording: nullableShape({
+        points: [recordedPointShape],
+    }),
 });
 
 export type ActiveRun = typeof activeRunShape.runtimeType;
@@ -67,6 +111,7 @@ export const userDataShape = defineShape({
     workouts: [workoutShape],
     goals: [goalShape],
     activeWorkout: nullableShape(activeWorkoutShape),
+    routes: [routeShape],
 });
 
 export type UserData = typeof userDataShape.runtimeType;

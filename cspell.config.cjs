@@ -14,6 +14,9 @@ module.exports = {
     words: [
         ...baseConfig.words,
         'notarget',
+        'Peucker',
+        'equirectangular',
+        'unflushed',
         'bdemann',
         'KTST',
         'Cloudflare',

@@ -15,13 +15,17 @@ go outside at all?**
 -   Rate a run **Miserable** and every temperature at or below it says _don't go outside_, until a
     later run at that temperature or colder goes OK.
 -   **Log a run I already did** adds a run after the fact. **Runs** lists every run, coldest first.
+-   **Routes:** pick "Record a new route" on Today and keep the screen on while you run (GPS). On
+    finish, name the route to save it. Pick it on later runs and the distance and pace come from the
+    saved route and your time, no GPS needed. History shows distance and pace.
 -   **Workout** is a short bodyweight circuit: a baseline test first, then sets that grow a rep at a
     time, one tap per set. Finishing shows what to do next time. The baseline lets you pick a
     harder variation per exercise.
 -   **Goals** (from the Workout screen or the "2 of 3 this week" line on Today) tracks a target for
     an exercise and shows progress, a deadline and when you reached it.
 
-Run data lives only in the browser (localStorage); **Settings** exports and imports it as JSON.
+Run data, including saved routes (GPS tracks, which are precise locations), lives only in the
+browser (localStorage) and is never sent anywhere; **Settings** exports and imports it as JSON.
 
 ## Stack
 

@@ -1,8 +1,10 @@
 import {getNowInIsoString} from 'date-vir';
 import {css, defineElement, html, listen, nothing} from 'element-vir';
 import {removeClothingItem} from '../../data/clothing.js';
+import {formatMiles} from '../../data/gps.js';
 import {type RunLocation, type UserData} from '../../data/shapes.js';
 import {exportFilename} from '../../data/user-data.js';
+import {renderRoutePreview} from '../route-preview.js';
 import {getRunStore} from '../storage.js';
 import {screenStyles} from '../styles.js';
 import {locateDevice, searchPlaces} from '../weather-client.js';
@@ -68,6 +70,29 @@ export const SettingsScreen = defineElement()({
             min-height: 44px;
         }
 
+        .routes li {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .routes .route-name {
+            flex: 1;
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .routes li button,
+        .routes li input {
+            width: auto;
+        }
+
+        .routes li input {
+            flex: 1;
+            min-width: 0;
+        }
+
         .button-like {
             display: inline-flex;
             align-items: center;
@@ -84,6 +109,11 @@ export const SettingsScreen = defineElement()({
             places: [] as RunLocation[],
             status: '',
             busy: false,
+            /** The route being renamed, and the name typed so far. */
+            renamingId: '',
+            renameText: '',
+            /** The route waiting for "Delete" to be confirmed. */
+            deletingId: '',
             runtime: {
                 unsubscribe: undefined as (() => void) | undefined,
             },
@@ -249,10 +279,120 @@ export const SettingsScreen = defineElement()({
                       <p class="muted">Items you add in the run form show up here.</p>
                   `}
 
+            <h2>Routes</h2>
+            ${state.data.routes.length
+                ? html`
+                      <ul class="routes">
+                          ${state.data.routes.map((route) => {
+                              return html`
+                                  <li>
+                                      ${renderRoutePreview({
+                                          points: route.points,
+                                          size: 48,
+                                      })}
+                                      ${state.renamingId === route.id
+                                          ? html`
+                                                <input
+                                                    type="text"
+                                                    aria-label="Route name"
+                                                    .value=${state.renameText}
+                                                    ${listen('input', (event) => {
+                                                        updateState({
+                                                            renameText: (
+                                                                event.target as HTMLInputElement
+                                                            ).value,
+                                                        });
+                                                    })}
+                                                />
+                                                <button
+                                                    ${listen('click', () => {
+                                                        if (state.renameText.trim()) {
+                                                            store.renameRoute({
+                                                                id: route.id,
+                                                                name: state.renameText.trim(),
+                                                            });
+                                                        }
+                                                        updateState({
+                                                            renamingId: '',
+                                                        });
+                                                    })}
+                                                >
+                                                    Save
+                                                </button>
+                                            `
+                                          : html`
+                                                <span class="route-name">
+                                                    ${route.name} ·
+                                                    ${formatMiles(route.distanceMiles)}
+                                                </span>
+                                                <button
+                                                    aria-label="Rename ${route.name}"
+                                                    ${listen('click', () => {
+                                                        updateState({
+                                                            renamingId: route.id,
+                                                            renameText: route.name,
+                                                            deletingId: '',
+                                                        });
+                                                    })}
+                                                >
+                                                    Rename
+                                                </button>
+                                            `}
+                                      ${state.deletingId === route.id
+                                          ? html`
+                                                <button
+                                                    class="danger"
+                                                    aria-label="Confirm delete ${route.name}"
+                                                    ${listen('click', () => {
+                                                        store.deleteRoute(route.id);
+                                                        updateState({
+                                                            deletingId: '',
+                                                        });
+                                                    })}
+                                                >
+                                                    Delete route?
+                                                </button>
+                                                <button
+                                                    ${listen('click', () => {
+                                                        updateState({
+                                                            deletingId: '',
+                                                        });
+                                                    })}
+                                                >
+                                                    Keep
+                                                </button>
+                                            `
+                                          : html`
+                                                <button
+                                                    class="danger"
+                                                    aria-label="Delete ${route.name}"
+                                                    ${listen('click', () => {
+                                                        updateState({
+                                                            deletingId: route.id,
+                                                            renamingId: '',
+                                                        });
+                                                    })}
+                                                >
+                                                    Delete
+                                                </button>
+                                            `}
+                                  </li>
+                              `;
+                          })}
+                      </ul>
+                      <p class="muted">Deleting a route keeps the distance of past runs.</p>
+                  `
+                : html`
+                      <p class="muted">
+                          Pick "Record a new route" on Today before a run to save one.
+                      </p>
+                  `}
+
             <h2>Your data</h2>
             <p class="muted">
-                Runs are saved on this device only. Install the app (Add to Home screen) so the
-                browser keeps them, and export now and then so you never lose them.
+                Runs and routes (GPS tracks) are saved on this device only. Install the app (Add to
+                Home screen) so the browser keeps them, and export now and then so you never lose
+                them.
             </p>
             <div class="buttons">
                 <button
