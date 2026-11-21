@@ -1,6 +1,7 @@
 import {assert} from '@augment-vir/assert';
 import {describe, it} from 'node:test';
 import {feelings} from './feelings.js';
+import {testRoute} from './test-routes.js';
 import {testRun} from './test-runs.js';
 import {testGoal, testSet, testWorkout} from './test-workouts.js';
 import {emptyUserData, exportFilename, mergeUserData, parseUserData} from './user-data.js';
@@ -69,6 +70,118 @@ describe(parseUserData.name, () => {
         });
         assert.isNull(parsed.data.activeRun);
         assert.isNull(parsed.data.settings.location);
+    });
+});
+
+describe('route data', () => {
+    const oldRun: Record<string, unknown> = {
+        ...run51,
+    };
+    delete oldRun['routeId'];
+    delete oldRun['distanceMiles'];
+
+    it('keeps old runs and runs in progress that lack the route keys', () => {
+        const parsed = parseUserData({
+            version: 1,
+            runs: [oldRun],
+            activeRun: {
+                startedAt: '2026-11-17T13:00:00.000Z',
+                temperatureF: 51,
+                feelsLikeF: null,
+                windMph: null,
+            },
+            settings: {},
+        });
+        assert.strictEquals(parsed.droppedRuns, 0);
+        assert.deepEquals(parsed.data.runs, [run51]);
+        assert.deepEquals(parsed.data.activeRun, {
+            startedAt: '2026-11-17T13:00:00.000Z',
+            temperatureF: 51,
+            feelsLikeF: null,
+            windMph: null,
+            routeId: null,
+            recording: null,
+        });
+        assert.deepEquals(parsed.data.routes, []);
+    });
+
+    it('still drops a run that is bad in another way, and non-object runs', () => {
+        const parsed = parseUserData({
+            runs: [
+                {
+                    ...oldRun,
+                    feeling: 'sweaty',
+                },
+                'run',
+                [],
+            ],
+        });
+        assert.strictEquals(parsed.droppedRuns, 3);
+    });
+
+    it('keeps good routes and drops bad ones one at a time', () => {
+        const parsed = parseUserData({
+            routes: [
+                testRoute(),
+                {
+                    id: 'bad',
+                },
+            ],
+        });
+        assert.deepEquals(parsed.data.routes, [testRoute()]);
+    });
+
+    it('keeps a recording in progress', () => {
+        const activeRun = {
+            startedAt: '2026-11-17T13:00:00.000Z',
+            temperatureF: null,
+            feelsLikeF: null,
+            windMph: null,
+            routeId: null,
+            recording: {
+                points: [
+                    {
+                        latitude: 1,
+                        longitude: 2,
+                        accuracyM: 5,
+                        atMs: 3,
+                    },
+                ],
+            },
+        };
+        assert.deepEquals(
+            parseUserData({
+                activeRun,
+            }).data.activeRun,
+            activeRun,
+        );
+    });
+
+    it('merges routes by id with the import winning', () => {
+        const merged = mergeUserData({
+            current: {
+                ...emptyUserData(),
+                routes: [testRoute()],
+            },
+            imported: {
+                ...emptyUserData(),
+                routes: [
+                    testRoute({
+                        name: 'Renamed',
+                    }),
+                    testRoute({
+                        id: 'r2',
+                    }),
+                ],
+            },
+        });
+        assert.deepEquals(
+            merged.routes.map((route) => route.name),
+            [
+                'Renamed',
+                'River loop',
+            ],
+        );
     });
 });
 

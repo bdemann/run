@@ -2,6 +2,7 @@ import {css, defineElement, html, listen, nothing} from 'element-vir';
 import {sortNewestFirst} from '../../data/advice.js';
 import {describeClothing} from '../../data/clothing.js';
 import {feelings, feelingShortLabels} from '../../data/feelings.js';
+import {formatMiles, paceText} from '../../data/gps.js';
 import {type Run, type UserData} from '../../data/shapes.js';
 import {goTo} from '../../router.js';
 import {formatRunDate} from '../dates.js';
@@ -19,6 +20,20 @@ function sortRuns({
     return order === 'date'
         ? newest
         : newest.toSorted((a, b) => Math.round(a.temperatureF) - Math.round(b.temperatureF));
+}
+
+/** "· 3.10 mi · 9:32 /mi", or nothing when the distance is unknown. */
+function describeDistance(run: Readonly<Run>): string {
+    if (!run.distanceMiles) {
+        return '';
+    }
+    const pace = paceText({
+        distanceMiles: run.distanceMiles,
+        durationMinutes: run.durationMinutes,
+    });
+    return pace
+        ? `· ${formatMiles(run.distanceMiles)} · ${pace}`
+        : `· ${formatMiles(run.distanceMiles)}`;
 }
 
 function capitalize(text: string): string {
@@ -108,6 +123,14 @@ export const HistoryScreen = defineElement()({
             runs: state.data.runs,
             order: state.order,
         });
+        const routeNames = new Map(
+            state.data.routes.map((route) => {
+                return [
+                    route.id,
+                    route.name,
+                ];
+            }),
+        );
         const orders: ReadonlyArray<{order: SortOrder; label: string}> = [
             {
                 order: 'temperature',
@@ -180,6 +203,12 @@ export const HistoryScreen = defineElement()({
                                                   ${run.durationMinutes
                                                       ? html`
                                                             · ${run.durationMinutes} min
+                                                        `
+                                                      : nothing}
+                                                  ${describeDistance(run)}
+                                                  ${routeNames.get(run.routeId ?? '')
+                                                      ? html`
+                                                            · ${routeNames.get(run.routeId ?? '')}
                                                         `
                                                       : nothing}
                                               </span>

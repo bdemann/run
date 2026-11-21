@@ -18,6 +18,8 @@ export function testRun(
             'Shorts',
         ],
         notes: '',
+        routeId: null,
+        distanceMiles: null,
         ...overrides,
     };
 }

@@ -2,6 +2,7 @@ import {assert} from '@augment-vir/assert';
 import {describe, it} from 'node:test';
 import {feelings} from './feelings.js';
 import {createMemoryBackend, RunStore} from './run-store.js';
+import {testRoute} from './test-routes.js';
 import {testRun} from './test-runs.js';
 import {testGoal, testSet, testWorkout} from './test-workouts.js';
 import {emptyUserData} from './user-data.js';
@@ -17,6 +18,8 @@ const active = {
     temperatureF: 51,
     feelsLikeF: 48,
     windMph: 3,
+    routeId: null,
+    recording: null,
 };
 
 describe(RunStore.name, () => {
@@ -85,6 +88,72 @@ describe(RunStore.name, () => {
             run: run51,
         });
         assert.deepEquals(store.getData().activeRun, active);
+    });
+
+    it('updates the run in progress, and ignores updates without one', () => {
+        const store = new RunStore(createMemoryBackend());
+        store.updateActiveRun({
+            routeId: 'x',
+        });
+        assert.isNull(store.getData().activeRun);
+        store.startRun(active);
+        store.updateActiveRun({
+            routeId: 'r1',
+            recording: {
+                points: [
+                    {
+                        latitude: 1,
+                        longitude: 2,
+                        accuracyM: 5,
+                        atMs: 3,
+                    },
+                ],
+            },
+        });
+        assert.strictEquals(store.getData().activeRun?.routeId, 'r1');
+        assert.strictEquals(store.getData().activeRun?.recording?.points.length, 1);
+        assert.strictEquals(store.getData().activeRun?.startedAt, active.startedAt);
+    });
+
+    it('saves, renames and deletes routes without touching runs', () => {
+        const store = new RunStore(createMemoryBackend());
+        const run = {
+            ...run51,
+            routeId: 'r1',
+            distanceMiles: 3.1,
+        };
+        store.saveRun({
+            run,
+        });
+        store.saveRoute(testRoute());
+        store.saveRoute(
+            testRoute({
+                id: 'r2',
+            }),
+        );
+        store.saveRoute(
+            testRoute({
+                name: 'Replaced',
+            }),
+        );
+        assert.strictEquals(store.getData().routes.length, 2);
+        store.renameRoute({
+            id: 'r2',
+            name: 'Hill',
+        });
+        assert.deepEquals(
+            store.getData().routes.map((route) => route.name),
+            [
+                'Hill',
+                'Replaced',
+            ],
+        );
+        store.deleteRoute('r1');
+        assert.deepEquals(
+            store.getData().routes.map((route) => route.id),
+            ['r2'],
+        );
+        assert.deepEquals(store.getRun('a'), run);
     });
 
     it('saves settings', () => {

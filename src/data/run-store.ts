@@ -3,6 +3,7 @@ import {
     type ActiveRun,
     type ActiveWorkout,
     type Goal,
+    type Route,
     type Run,
     type RunLocation,
     type UserData,
@@ -77,6 +78,53 @@ export class RunStore {
             activeRun: {
                 ...activeRun,
             },
+        });
+    }
+
+    /** Changes fields of the run in progress (route choice, recording). No-op without one. */
+    public updateActiveRun(partial: Readonly<Partial<ActiveRun>>): void {
+        if (!this.data.activeRun) {
+            return;
+        }
+        this.commit({
+            ...this.data,
+            activeRun: structuredClone({
+                ...this.data.activeRun,
+                ...partial,
+            }),
+        });
+    }
+
+    /** Adds a route, or replaces the one with the same id. */
+    public saveRoute(route: Readonly<Route>): void {
+        this.commit({
+            ...this.data,
+            routes: [
+                ...this.data.routes.filter((existing) => existing.id !== route.id),
+                structuredClone(route),
+            ],
+        });
+    }
+
+    public renameRoute({id, name}: Readonly<{id: string; name: string}>): void {
+        this.commit({
+            ...this.data,
+            routes: this.data.routes.map((route) => {
+                return route.id === id
+                    ? {
+                          ...route,
+                          name,
+                      }
+                    : route;
+            }),
+        });
+    }
+
+    /** Runs keep their own `distanceMiles`; their `routeId` just stops matching a route. */
+    public deleteRoute(id: string): void {
+        this.commit({
+            ...this.data,
+            routes: this.data.routes.filter((route) => route.id !== id),
         });
     }
 
