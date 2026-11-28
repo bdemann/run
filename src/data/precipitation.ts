@@ -119,7 +119,10 @@ const intensityStrength: Readonly<Record<Intensity, number>> = {
 
 function kindFromNwsWeather(weather: string): PrecipitationKind {
     const text = weather.toLowerCase();
-    if (text.includes('thunder')) {
+    /** Freezing fog and ice crystals are not falling precipitation. */
+    if (text.includes('fog') || text.includes('crystals')) {
+        return precipitationKinds.none;
+    } else if (text.includes('thunder')) {
         return precipitationKinds.thunderstorm;
     } else if (
         text.includes('ice') ||

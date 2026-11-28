@@ -81,6 +81,8 @@ describe(precipitationFromNws.name, () => {
         assert.strictEquals(
             nws(
                 entry('fog_mist', null),
+                entry('freezing_fog', null),
+                entry('ice_crystals', 'light'),
                 {
                     weather: 'haze',
                 },
