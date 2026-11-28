@@ -68,6 +68,12 @@ so even `@bdemann/*` and electrovir releases younger than 5 days fail with `nota
         answer is a `WeatherReading` (`source`, `observedAt`, `station`); Today shows where it came
         from. Never log the station. Coordinates sent to the Worker are rounded to 2 decimals (about 1 km) and the
         Worker never logs or stores them.
+    -   Activities (`activities.ts`): a `Run` record has an `activity` (`run` or `walk`, ids stored), and
+        walks also store `kidsFeeling` and `kidsClothing` (runs: `null` / `[]`). `advise`,
+        `prefillForTemperature` take an `activity` and only look at that activity's records;
+        `adviseKids` runs the same rules over walks' kids feeling/clothing. `defaultKidsClothing`
+        is the kids' clothing list (`clothingGroups` / `addClothingItem` take optional `defaults`).
+        Old documents get these keys from defaults in `parseUserData` (no version bump).
     -   `shapes.ts`, `user-data.ts`, `run-store.ts`: the one stored document (`UserData`, also the
         export/import format), lenient parsing (bad runs are dropped one by one), and `RunStore`,
         the only API the UI uses (`subscribe` to re-render).

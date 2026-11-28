@@ -1,4 +1,5 @@
 import {defineShape, enumShape, nullableShape} from 'object-shape-tester';
+import {activities} from './activities.js';
 import {feelings} from './feelings.js';
 import {activeWorkoutShape, exerciseShape, goalShape, workoutShape} from './workout-shapes.js';
 
@@ -8,6 +9,8 @@ export * from './workout-shapes.js';
 export const currentUserDataVersion = 1;
 
 export const feelingShape = enumShape(feelings);
+
+export const activityShape = enumShape(activities);
 
 /** Where the temperature is looked up. */
 export const locationShape = defineShape({
@@ -54,7 +57,7 @@ export const recordedPointShape = defineShape({
 
 export type RecordedPoint = typeof recordedPointShape.runtimeType;
 
-/** One finished run. */
+/** One finished run or walk (see `activity`). */
 export const runShape = defineShape({
     /** Stable id (a UUID). */
     id: '',
@@ -72,12 +75,20 @@ export const runShape = defineShape({
     /** Added later: old runs lack these keys (parsing fills `null`). */
     routeId: nullableShape(''),
     distanceMiles: nullableShape(0),
+    /** Added later: old runs lack these keys (parsing fills `run`, `null` and `[]`). */
+    activity: activityShape,
+    /** How the kids felt on a walk. Runs always have `null`. */
+    kidsFeeling: nullableShape(feelingShape),
+    /** What the kids wore on a walk. Runs always have `[]`. */
+    kidsClothing: [''],
 });
 
 export type Run = typeof runShape.runtimeType;
 
 /** A run in progress: started, not finished. Weather is what it was at the start. */
 export const activeRunShape = defineShape({
+    /** Added later: old documents lack this key (parsing fills `run`). */
+    activity: activityShape,
     startedAt: '',
     temperatureF: nullableShape(0),
     feelsLikeF: nullableShape(0),

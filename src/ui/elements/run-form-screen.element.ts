@@ -118,6 +118,7 @@ function initialDraft({mode, runId}: Readonly<{mode: RunFormMode; runId?: string
         };
     }
     const prefill = prefillForTemperature({
+        activity: 'run',
         runs: data.runs,
         temperatureF: parseNumber(base.temperatureF) ?? undefined,
     });
@@ -294,6 +295,7 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
             const prefill = state.answersTouched
                 ? undefined
                 : prefillForTemperature({
+                      activity: 'run',
                       runs: store.getData().runs,
                       temperatureF: parseNumber(text) ?? undefined,
                   });
@@ -407,6 +409,9 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
                 notes: draft.notes.trim(),
                 routeId,
                 distanceMiles,
+                activity: 'run',
+                kidsFeeling: null,
+                kidsClothing: [],
             };
             store.saveRun({
                 run,

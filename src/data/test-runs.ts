@@ -20,6 +20,9 @@ export function testRun(
         notes: '',
         routeId: null,
         distanceMiles: null,
+        activity: 'run',
+        kidsFeeling: null,
+        kidsClothing: [],
         ...overrides,
     };
 }

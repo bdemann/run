@@ -312,6 +312,7 @@ export const TodayScreen = defineElement()({
                 }
             }
             const activeRun: ActiveRun = {
+                activity: 'run',
                 startedAt: getNowInIsoString(),
                 temperatureF: weather?.temperatureF ?? typedTemperatureF,
                 feelsLikeF: weather?.feelsLikeF ?? null,
@@ -398,6 +399,7 @@ export const TodayScreen = defineElement()({
         const typedTemperatureF = parseNumber(state.typedTemperature) ?? undefined;
         const temperatureF = weather?.temperatureF ?? typedTemperatureF;
         const advice = advise({
+            activity: 'run',
             runs: data.runs,
             temperatureF,
         });

@@ -1,3 +1,4 @@
+import {type Activity, activities} from './activities.js';
 import {feelings, feelingScores} from './feelings.js';
 import {type Run} from './shapes.js';
 
@@ -162,14 +163,20 @@ export function suggestFrom({
     }
 }
 
-/** What to tell the person before a run at this temperature. */
+/**
+ * What to tell the person before an outing at this temperature. Only past outings of the same
+ * activity count, so walks never change run advice or the miserable ceiling, and vice versa.
+ */
 export function advise({
-    runs,
+    runs: allRuns,
     temperatureF,
+    activity,
 }: Readonly<{
     runs: ReadonlyArray<Readonly<Run>>;
     temperatureF: number | undefined;
+    activity: Activity;
 }>): Advice {
+    const runs = allRuns.filter((run) => run.activity === activity);
     if (temperatureF == undefined) {
         return {
             kind: 'no-temperature',
@@ -203,6 +210,35 @@ export function advise({
             temperatureF: rounded,
         }),
     };
+}
+
+/**
+ * Advice for the kids on a walk: the same rules as {@link advise}, over the walks that recorded how
+ * the kids felt, using the kids' feeling and clothing.
+ */
+export function adviseKids({
+    runs,
+    temperatureF,
+}: Readonly<{
+    runs: ReadonlyArray<Readonly<Run>>;
+    temperatureF: number | undefined;
+}>): Advice {
+    const kidsRuns = runs.flatMap((run) => {
+        return run.activity === activities.walk && run.kidsFeeling != undefined
+            ? [
+                  {
+                      ...run,
+                      feeling: run.kidsFeeling,
+                      clothing: run.kidsClothing,
+                  },
+              ]
+            : [];
+    });
+    return advise({
+        runs: kidsRuns,
+        temperatureF,
+        activity: activities.walk,
+    });
 }
 
 /** How much windier or calmer (mph) today must be before we mention it. */
