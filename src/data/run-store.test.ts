@@ -14,6 +14,7 @@ const run51 = testRun({
 });
 
 const active = {
+    activity: 'run' as const,
     startedAt: '2026-11-17T13:00:00.000Z',
     temperatureF: 51,
     feelsLikeF: 48,
@@ -23,6 +24,22 @@ const active = {
 };
 
 describe(RunStore.name, () => {
+    it('keeps the kids fields of a saved walk', () => {
+        const store = new RunStore(createMemoryBackend());
+        const walk = testRun({
+            id: 'w',
+            temperatureF: 40,
+            feeling: feelings.right,
+            activity: 'walk',
+            kidsFeeling: feelings.coldOk,
+            kidsClothing: ['Hat'],
+        });
+        store.saveRun({
+            run: walk,
+        });
+        assert.deepEquals(new RunStore(createMemoryBackend(store.getData())).getRun('w'), walk);
+    });
+
     it('starts empty and survives a backend that throws', () => {
         const store = new RunStore({
             load() {

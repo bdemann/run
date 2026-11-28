@@ -73,12 +73,71 @@ describe(parseUserData.name, () => {
     });
 });
 
+describe('activity data', () => {
+    const walk = testRun({
+        id: 'w',
+        temperatureF: 40,
+        feeling: feelings.right,
+        activity: 'walk',
+        kidsFeeling: feelings.tooCold,
+        kidsClothing: ['Hat'],
+    });
+
+    it('round-trips a walk', () => {
+        const parsed = parseUserData({
+            runs: [walk],
+        });
+        assert.deepEquals(parsed.data.runs, [walk]);
+    });
+
+    it('drops a run with a bad activity', () => {
+        const parsed = parseUserData({
+            runs: [
+                {
+                    ...walk,
+                    activity: 'swim',
+                },
+            ],
+        });
+        assert.strictEquals(parsed.droppedRuns, 1);
+    });
+
+    it('gives each old run its own fresh kids clothing array', () => {
+        const oldRun: Record<string, unknown> = {
+            ...walk,
+        };
+        delete oldRun['activity'];
+        delete oldRun['kidsFeeling'];
+        delete oldRun['kidsClothing'];
+        const parsed = parseUserData({
+            runs: [
+                oldRun,
+                {
+                    ...oldRun,
+                    id: 'x',
+                },
+            ],
+        });
+        assert.deepEquals(
+            parsed.data.runs.map((run) => run.activity),
+            [
+                'run',
+                'run',
+            ],
+        );
+        assert.strictEquals(new Set(parsed.data.runs.map((run) => run.kidsClothing)).size, 2);
+    });
+});
+
 describe('route data', () => {
     const oldRun: Record<string, unknown> = {
         ...run51,
     };
     delete oldRun['routeId'];
     delete oldRun['distanceMiles'];
+    delete oldRun['activity'];
+    delete oldRun['kidsFeeling'];
+    delete oldRun['kidsClothing'];
 
     it('keeps old runs and runs in progress that lack the route keys', () => {
         const parsed = parseUserData({
@@ -95,6 +154,7 @@ describe('route data', () => {
         assert.strictEquals(parsed.droppedRuns, 0);
         assert.deepEquals(parsed.data.runs, [run51]);
         assert.deepEquals(parsed.data.activeRun, {
+            activity: 'run',
             startedAt: '2026-11-17T13:00:00.000Z',
             temperatureF: 51,
             feelsLikeF: null,
@@ -133,6 +193,7 @@ describe('route data', () => {
 
     it('keeps a recording in progress', () => {
         const activeRun = {
+            activity: 'run' as const,
             startedAt: '2026-11-17T13:00:00.000Z',
             temperatureF: null,
             feelsLikeF: null,

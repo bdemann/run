@@ -45,7 +45,7 @@ function arrayField(raw: unknown, key: string): unknown[] {
 }
 
 /** Adds the keys older documents lack (as `null`) so their records still match the shape. */
-function withDefaults(raw: unknown, defaults: Readonly<Record<string, null>>): unknown {
+function withDefaults(raw: unknown, defaults: Readonly<Record<string, unknown>>): unknown {
     return raw && typeof raw === 'object' && !Array.isArray(raw)
         ? {
               ...defaults,
@@ -54,15 +54,24 @@ function withDefaults(raw: unknown, defaults: Readonly<Record<string, null>>): u
         : raw;
 }
 
-const oldRunDefaults = {
-    routeId: null,
-    distanceMiles: null,
-};
+/** Functions so every record gets its own fresh arrays. */
+function oldRunDefaults(): Record<string, unknown> {
+    return {
+        routeId: null,
+        distanceMiles: null,
+        activity: 'run',
+        kidsFeeling: null,
+        kidsClothing: [],
+    };
+}
 
-const oldActiveRunDefaults = {
-    routeId: null,
-    recording: null,
-};
+function oldActiveRunDefaults(): Record<string, unknown> {
+    return {
+        routeId: null,
+        recording: null,
+        activity: 'run',
+    };
+}
 
 /** Result of reading stored or imported data. */
 export type ParsedUserData = {
@@ -81,14 +90,14 @@ export type ParsedUserData = {
 export function parseUserData(raw: unknown): ParsedUserData {
     const rawRuns = arrayField(raw, 'runs');
     const runs = rawRuns
-        .map((run) => withDefaults(run, oldRunDefaults))
+        .map((run) => withDefaults(run, oldRunDefaults()))
         .filter((run): run is Run => checkShape(run, runShape));
     const rawWorkouts = arrayField(raw, 'workouts');
     const workouts = rawWorkouts.filter((workout): workout is Workout => {
         return checkShape(workout, workoutShape);
     });
     const activeWorkout = field(raw, 'activeWorkout');
-    const activeRun = withDefaults(field(raw, 'activeRun'), oldActiveRunDefaults);
+    const activeRun = withDefaults(field(raw, 'activeRun'), oldActiveRunDefaults());
     const settings = field(raw, 'settings');
     const location = field(settings, 'location');
     return {

@@ -1,8 +1,10 @@
 import {assert} from '@augment-vir/assert';
 import {itCases} from '@augment-vir/test';
 import {describe, it} from 'node:test';
+import {activities} from './activities.js';
 import {
     advise,
+    adviseKids,
     describeConditionsDifference,
     findReferenceRun,
     isOverruled,
@@ -286,6 +288,7 @@ describe(advise.name, () => {
     it('needs a temperature', () => {
         assert.deepEquals(
             advise({
+                activity: activities.run,
                 runs: [morning51],
                 temperatureF: undefined,
             }),
@@ -298,6 +301,7 @@ describe(advise.name, () => {
     it('says too cold at or below a miserable temperature', () => {
         assert.deepEquals(
             advise({
+                activity: activities.run,
                 runs: [
                     morning51,
                     miserable25,
@@ -315,6 +319,7 @@ describe(advise.name, () => {
     it('says there is no history far from any run', () => {
         assert.deepEquals(
             advise({
+                activity: activities.run,
                 runs: [morning51],
                 temperatureF: 70,
             }),
@@ -328,6 +333,7 @@ describe(advise.name, () => {
     it('suggests from the reference run', () => {
         assert.deepEquals(
             advise({
+                activity: activities.run,
                 runs: [morning51],
                 temperatureF: 51,
             }),
@@ -490,4 +496,91 @@ describe(describeConditionsDifference.name, () => {
             },
         ],
     );
+});
+
+describe('advice by activity', () => {
+    const run = testRun({
+        id: 'r',
+        temperatureF: 40,
+        feeling: feelings.miserable,
+    });
+    const walk = testRun({
+        id: 'w',
+        temperatureF: 40,
+        feeling: feelings.right,
+        activity: 'walk',
+        kidsFeeling: feelings.tooCold,
+        kidsClothing: ['Hat'],
+    });
+
+    it('keeps walks out of run advice and runs out of walk advice', () => {
+        assert.strictEquals(
+            advise({
+                runs: [walk],
+                temperatureF: 40,
+                activity: activities.run,
+            }).kind,
+            'no-history',
+        );
+        assert.strictEquals(
+            advise({
+                runs: [run],
+                temperatureF: 40,
+                activity: activities.walk,
+            }).kind,
+            'no-history',
+        );
+        assert.strictEquals(
+            advise({
+                runs: [run],
+                temperatureF: 40,
+                activity: activities.run,
+            }).kind,
+            'too-cold',
+        );
+    });
+
+    it('advises the kids from the walks with a kids feeling', () => {
+        const advice = adviseKids({
+            runs: [
+                run,
+                walk,
+                testRun({
+                    id: 'w2',
+                    temperatureF: 40,
+                    feeling: feelings.right,
+                    activity: 'walk',
+                    startedAt: '2026-11-18T13:00:00.000Z',
+                }),
+            ],
+            temperatureF: 40,
+        });
+        assert.strictEquals(advice.kind, 'suggestion');
+        assert.strictEquals(advice.reference.run.id, 'w');
+        assert.deepEquals(advice.reference.run.clothing, ['Hat']);
+        assert.strictEquals(advice.suggestion, suggestions.bundleUp);
+    });
+
+    it('says the kids should stay inside after a miserable walk', () => {
+        const advice = adviseKids({
+            runs: [
+                {
+                    ...walk,
+                    kidsFeeling: feelings.miserable,
+                },
+            ],
+            temperatureF: 35,
+        });
+        assert.strictEquals(advice.kind, 'too-cold');
+    });
+
+    it('needs a temperature for the kids too', () => {
+        assert.strictEquals(
+            adviseKids({
+                runs: [walk],
+                temperatureF: undefined,
+            }).kind,
+            'no-temperature',
+        );
+    });
 });

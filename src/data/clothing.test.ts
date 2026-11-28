@@ -1,10 +1,12 @@
 import {assert} from '@augment-vir/assert';
 import {itCases} from '@augment-vir/test';
 import {describe, it} from 'node:test';
+import {activities} from './activities.js';
 import {
     addClothingItem,
     clothingGroups,
     defaultClothing,
+    defaultKidsClothing,
     describeClothing,
     prefillForTemperature,
     removeClothingItem,
@@ -114,12 +116,15 @@ describe(prefillForTemperature.name, () => {
     it('fills nothing without a temperature', () => {
         assert.deepEquals(
             prefillForTemperature({
+                activity: activities.run,
                 runs: [at51],
                 temperatureF: undefined,
             }),
             {
                 clothing: [],
                 feeling: undefined,
+                kidsClothing: [],
+                kidsFeeling: undefined,
                 note: undefined,
             },
         );
@@ -127,6 +132,7 @@ describe(prefillForTemperature.name, () => {
 
     it('fills clothing and feeling from an exact match', () => {
         const prefill = prefillForTemperature({
+            activity: activities.run,
             runs: [at51],
             temperatureF: 51,
         });
@@ -137,6 +143,7 @@ describe(prefillForTemperature.name, () => {
 
     it('fills only clothing from a nearby run', () => {
         const prefill = prefillForTemperature({
+            activity: activities.run,
             runs: [at51],
             temperatureF: 48,
         });
@@ -185,6 +192,64 @@ describe(removeClothingItem.name, () => {
                 item: 'Hat',
             }),
             ['Vest'],
+        );
+    });
+});
+
+describe('walks', () => {
+    const walk = testRun({
+        temperatureF: 40,
+        feeling: feelings.right,
+        activity: 'walk',
+        kidsFeeling: feelings.coldOk,
+        kidsClothing: ['Hat'],
+    });
+
+    it('fills the kids from the last walk, and ignores runs', () => {
+        const prefill = prefillForTemperature({
+            runs: [
+                walk,
+                testRun({
+                    temperatureF: 40,
+                    feeling: feelings.right,
+                    startedAt: '2026-11-20T13:00:00.000Z',
+                }),
+            ],
+            temperatureF: 40,
+            activity: activities.walk,
+        });
+        assert.deepEquals(prefill.kidsClothing, ['Hat']);
+        assert.strictEquals(prefill.kidsFeeling, feelings.coldOk);
+        assert.isTrue(prefill.note?.includes('last walk at 40°F'));
+    });
+
+    it('fills only kids clothing from a nearby walk', () => {
+        const prefill = prefillForTemperature({
+            runs: [walk],
+            temperatureF: 38,
+            activity: activities.walk,
+        });
+        assert.deepEquals(prefill.kidsClothing, ['Hat']);
+        assert.isUndefined(prefill.kidsFeeling);
+        assert.isTrue(prefill.note?.includes('closest walk (40°F)'));
+    });
+
+    it('uses the kids list for groups and added items', () => {
+        assert.deepEquals(
+            clothingGroups({
+                customClothing: [],
+                selected: [],
+                defaults: defaultKidsClothing,
+            }).map((group) => group.name),
+            Object.keys(defaultKidsClothing),
+        );
+        assert.strictEquals(
+            addClothingItem({
+                customClothing: [],
+                typed: 'mittens',
+                defaults: defaultKidsClothing,
+            })?.item,
+            'Mittens',
         );
     });
 });
