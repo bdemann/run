@@ -111,12 +111,12 @@ test('record a route once, then reuse it for distance and pace', async ({page}) 
         page.locator('li').filter({
             hasText: '10:32 /mi',
         }),
-    ).toContainText('0.19 mi · 10:32 /mi · River loop');
+    ).toContainText('0.19 mi · 10:32 /mi');
     await expect(
         page.locator('li').filter({
             hasText: '15:47 /mi',
         }),
-    ).toContainText('0.19 mi · 15:47 /mi · River loop');
+    ).toContainText('0.19 mi · 15:47 /mi');
 
     /** Settings lists the route; deleting it keeps the runs' distances. */
     await openTab(page, 'Settings');

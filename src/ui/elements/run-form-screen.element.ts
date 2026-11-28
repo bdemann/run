@@ -251,7 +251,16 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
         const store = getRunStore();
 
         function back() {
-            goTo(inputs.mode === 'edit' ? ['runs'] : []);
+            if (inputs.mode !== 'edit') {
+                goTo([]);
+            } else if (inputs.runId && draft) {
+                goTo([
+                    'runs',
+                    inputs.runId,
+                ]);
+            } else {
+                goTo(['runs']);
+            }
         }
 
         if (!draft) {
@@ -709,7 +718,7 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
                               ${listen('click', () => {
                                   if (draft.id && globalThis.confirm('Delete this run?')) {
                                       store.deleteRun(draft.id);
-                                      back();
+                                      goTo(['runs']);
                                   }
                               })}
                           >

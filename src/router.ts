@@ -3,8 +3,8 @@ import {type FullSpaRoute, PathTree, SpaRouter} from 'spa-router-vir';
 /**
  * Pages: `/` (Today: weather, advice, start or the run in progress), `/finish` (finish the run in
  * progress), `/workout` (bodyweight workouts), `/goals`, `/log` (log a run after the fact), `/runs`
- * (history), `/runs/:id` (edit a run), `/settings`, `/about` and `/feedback`. Unknown paths are
- * sanitized back to `/`.
+ * (history), `/runs/:id` (a run's details) and `/runs/:id/edit` (edit it), `/settings`, `/about`
+ * and `/feedback`. Unknown paths are sanitized back to `/`.
  */
 const pathTree = new PathTree({
     allowBare: true,
@@ -16,7 +16,12 @@ const pathTree = new PathTree({
         runs: {
             allowBare: true,
             children: {
-                ':id': {},
+                ':id': {
+                    allowBare: true,
+                    children: {
+                        edit: {},
+                    },
+                },
             },
         },
         settings: {},
@@ -46,6 +51,7 @@ export type Screen =
     | 'goals'
     | 'log'
     | 'history'
+    | 'run-details'
     | 'edit'
     | 'settings'
     | 'about'
@@ -56,9 +62,10 @@ export function screenForRoute(route: Readonly<Pick<RunRoute, 'paths'>>): Screen
     const [
         first,
         second,
+        third,
     ] = route.paths;
     if (first === 'runs') {
-        return second ? 'edit' : 'history';
+        return second ? (third === 'edit' ? 'edit' : 'run-details') : 'history';
     } else if (
         first === 'finish' ||
         first === 'workout' ||
@@ -74,8 +81,8 @@ export function screenForRoute(route: Readonly<Pick<RunRoute, 'paths'>>): Screen
     }
 }
 
-/** The run id of a `/runs/:id` route. */
-export function editRunId(route: Readonly<Pick<RunRoute, 'paths'>>): string | undefined {
+/** The run id of a `/runs/:id` or `/runs/:id/edit` route. */
+export function runIdOf(route: Readonly<Pick<RunRoute, 'paths'>>): string | undefined {
     return route.paths[0] === 'runs' ? route.paths[1] : undefined;
 }
 

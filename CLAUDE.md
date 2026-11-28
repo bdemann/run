@@ -90,7 +90,7 @@ so even `@bdemann/*` and electrovir releases younger than 5 days fail with `nota
     (`sortGoals`, `describeWeek`, `deadlinePassed`) are in `src/data/goal-plan.ts`; the Monday week
     and end-of-day helpers are in `src/ui/dates.ts`.
 -   `src/router.ts`: spa-router-vir routes `/`, `/finish`, `/log`, `/workout`, `/goals`, `/runs`,
-    `/runs/:id`, `/settings`, `/about`, `/feedback`.
+    `/runs/:id` (run details), `/runs/:id/edit`, `/settings`, `/about`, `/feedback`.
 -   **Routes** (`src/data/gps.ts`, `src/ui/gps-recorder.ts`): record a route once with screen-on GPS
     (Wake Lock + `watchPosition`), save it with a name, pick it on later runs for distance and pace.
     The recording lives in `activeRun.recording` so it survives a reload; one app-wide recorder
