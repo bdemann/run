@@ -86,7 +86,67 @@ test('first run: set location, run, and log what was worn', async ({page}) => {
             exact: true,
         }),
     ).toHaveCount(1);
-    await expect(page.getByText(/feels 47°/)).toBeVisible();
+    /** Feels-like is on the details page, not in the list. */
+    await expect(page.getByText(/feels 47°/)).toBeHidden();
+    await page
+        .locator('li')
+        .filter({
+            hasText: '51°',
+        })
+        .click();
+    await expect(page.getByText('Feels like')).toBeVisible();
+    await expect(page.getByText('47°F')).toBeVisible();
+});
+
+test('run details show pace and clothing, and Edit changes the run', async ({page}) => {
+    await page.goto('/log');
+    await page.getByLabel('Temp °F').fill('40');
+    await page.getByLabel('Temp °F').press('Tab');
+    await page.getByLabel('Minutes').fill('30');
+    await page
+        .getByLabel('Distance (mi)', {
+            exact: true,
+        })
+        .fill('3');
+    await chip(page, 'Shirt').click();
+    await chip(page, 'Just right').click();
+    await page
+        .getByRole('button', {
+            name: 'Save run',
+        })
+        .click();
+
+    await openTab(page, 'Runs');
+    await page
+        .locator('li')
+        .filter({
+            hasText: '10:00 /mi',
+        })
+        .click();
+    await expect(page.getByText('40°F')).toBeVisible();
+    await expect(page.getByText('10:00 /mi')).toBeVisible();
+    await expect(page.getByText('3.00 mi')).toBeVisible();
+    await expect(
+        page.getByText('Shirt', {
+            exact: true,
+        }),
+    ).toBeVisible();
+
+    await page
+        .getByRole('button', {
+            name: 'Edit',
+        })
+        .click();
+    await chip(page, 'A bit cold, but fine').click();
+    await page
+        .getByRole('button', {
+            name: 'Save run',
+        })
+        .click();
+
+    await expect(page).toHaveURL(/\/runs\/[^/]+$/);
+    await expect(page.getByText('A bit cold, but fine')).toBeVisible();
+    await expect(page.getByText('10:00 /mi')).toBeVisible();
 });
 
 test('advice comes from a past run at the same temperature', async ({page}) => {

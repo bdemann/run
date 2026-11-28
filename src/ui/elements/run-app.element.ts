@@ -1,7 +1,7 @@
 import {AboutPage, BottomNav, FeedbackPage, SlideDrawer} from '@bdemann/app-kit/ui';
 import {css, defineElement, html, listen, type HtmlInterpolation} from 'element-vir';
 import {appName, repoUrl} from '../../data/app-info.js';
-import {editRunId, goTo, router, screenForRoute, type RunRoute, type Screen} from '../../router.js';
+import {goTo, router, runIdOf, screenForRoute, type RunRoute, type Screen} from '../../router.js';
 import {buildInfo} from '../build-info.js';
 import {diagnosticLog} from '../diagnostics.js';
 import {syncGpsRecorder} from '../gps-recorder.js';
@@ -15,6 +15,7 @@ import {
 import {getRunStore} from '../storage.js';
 import {GoalsScreen} from './goals-screen.element.js';
 import {HistoryScreen} from './history-screen.element.js';
+import {RunDetailsScreen} from './run-details-screen.element.js';
 import {RunFormScreen} from './run-form-screen.element.js';
 import {SettingsScreen} from './settings-screen.element.js';
 import {TodayScreen} from './today-screen.element.js';
@@ -66,7 +67,7 @@ const navTabs = [
 function tabIdForScreen(screen: Screen): string | undefined {
     if (screen === 'workout' || screen === 'goals') {
         return 'workout';
-    } else if (screen === 'history' || screen === 'edit') {
+    } else if (screen === 'history' || screen === 'run-details' || screen === 'edit') {
         return 'history';
     } else if (screen === 'settings') {
         return 'settings';
@@ -85,11 +86,17 @@ function renderScreen(route: Readonly<RunRoute>): HtmlInterpolation {
                 mode: screen,
             })}></${RunFormScreen}>
         `;
+    } else if (screen === 'run-details') {
+        return html`
+            <${RunDetailsScreen.assign({
+                runId: runIdOf(route) ?? '',
+            })}></${RunDetailsScreen}>
+        `;
     } else if (screen === 'edit') {
         return html`
             <${RunFormScreen.assign({
                 mode: 'edit',
-                runId: editRunId(route),
+                runId: runIdOf(route),
             })}></${RunFormScreen}>
         `;
     } else if (screen === 'workout') {
