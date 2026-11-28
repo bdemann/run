@@ -1,6 +1,12 @@
 import {getNowInIsoString} from 'date-vir';
 import {css, defineElement, html, listen, nothing} from 'element-vir';
-import {addClothingItem, clothingGroups, prefillForTemperature} from '../../data/clothing.js';
+import {activities, activityLabels, type Activity} from '../../data/activities.js';
+import {
+    addClothingItem,
+    clothingGroups,
+    defaultKidsClothing,
+    prefillForTemperature,
+} from '../../data/clothing.js';
 import {minutesSince} from '../../data/elapsed.js';
 import {feelingLabels, feelingOrder, type Feeling} from '../../data/feelings.js';
 import {formatMiles, paceText, simplifyPoints, trackDistanceMiles} from '../../data/gps.js';
@@ -25,8 +31,12 @@ type Draft = {
     temperatureF: string;
     feelsLikeF: string;
     windMph: string;
+    activity: Activity;
     clothing: string[];
     feeling: Feeling | undefined;
+    /** Walks only. */
+    kidsClothing: string[];
+    kidsFeeling: Feeling | undefined;
     notes: string;
     /** A saved route's id, or `''` for none. */
     routeId: string;
@@ -62,8 +72,11 @@ function initialDraft({mode, runId}: Readonly<{mode: RunFormMode; runId?: string
                 temperatureF: numberText(run.temperatureF),
                 feelsLikeF: numberText(run.feelsLikeF),
                 windMph: numberText(run.windMph),
+                activity: run.activity,
                 clothing: [...run.clothing],
                 feeling: run.feeling,
+                kidsClothing: [...run.kidsClothing],
+                kidsFeeling: run.kidsFeeling ?? undefined,
                 notes: run.notes,
                 routeId: run.routeId ?? '',
                 distanceMiles: distanceText(run.distanceMiles),
@@ -74,7 +87,18 @@ function initialDraft({mode, runId}: Readonly<{mode: RunFormMode; runId?: string
         };
     }
 
-    let base: Omit<Draft, 'clothing' | 'feeling' | 'notes' | 'id' | 'routeName'>;
+    let base: Omit<
+        Draft,
+        | 'clothing'
+        | 'feeling'
+        | 'notes'
+        | 'id'
+        | 'routeName'
+        | 'activity'
+        | 'kidsClothing'
+        | 'kidsFeeling'
+    >;
+    let activity: Activity = activities.run;
     let recorded: RecordedPoint[] = [];
     if (mode === 'finish') {
         const active = data.activeRun;
@@ -85,6 +109,7 @@ function initialDraft({mode, runId}: Readonly<{mode: RunFormMode; runId?: string
                 recorded: [],
             };
         }
+        activity = active.activity;
         recorded = active.recording?.points ?? [];
         const route = data.routes.find((existing) => existing.id === active.routeId);
         base = {
@@ -118,7 +143,7 @@ function initialDraft({mode, runId}: Readonly<{mode: RunFormMode; runId?: string
         };
     }
     const prefill = prefillForTemperature({
-        activity: 'run',
+        activity,
         runs: data.runs,
         temperatureF: parseNumber(base.temperatureF) ?? undefined,
     });
@@ -126,8 +151,11 @@ function initialDraft({mode, runId}: Readonly<{mode: RunFormMode; runId?: string
         draft: {
             ...base,
             id: undefined,
+            activity,
             clothing: prefill.clothing,
             feeling: prefill.feeling,
+            kidsClothing: prefill.kidsClothing,
+            kidsFeeling: prefill.kidsFeeling,
             notes: '',
             routeName: '',
         },
@@ -191,6 +219,17 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
             border-radius: 999px;
         }
 
+        .activity {
+            display: flex;
+            gap: 6px;
+            margin: 0 0 12px;
+        }
+
+        .activity button {
+            border-radius: 999px;
+        }
+
+        .activity button[aria-pressed='true'],
         .chips button[aria-pressed='true'],
         .feelings button[aria-pressed='true'] {
             border-color: var(--run-accent);
@@ -239,6 +278,7 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
             /** Distance typed by hand: choosing a route no longer fills it in. */
             distanceTouched: false,
             newItem: '',
+            newKidsItem: '',
             error: '',
             /** Clothing or feeling picked by hand: a new temperature no longer refills them. */
             answersTouched: false,
@@ -287,6 +327,42 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
             });
         }
 
+        /** What the form refills for a new temperature or activity (not on edit). */
+        function refill({
+            temperatureF,
+            activity,
+        }: Readonly<{temperatureF: string; activity: Activity}>): Partial<Draft> {
+            const prefill = prefillForTemperature({
+                activity,
+                runs: store.getData().runs,
+                temperatureF: parseNumber(temperatureF) ?? undefined,
+            });
+            updateState({
+                note: prefill.note,
+            });
+            return {
+                clothing: prefill.clothing,
+                feeling: prefill.feeling,
+                kidsClothing: prefill.kidsClothing,
+                kidsFeeling: prefill.kidsFeeling,
+            };
+        }
+
+        function changeActivity(activity: Activity) {
+            if (!draft) {
+                return;
+            }
+            change({
+                activity,
+                ...(inputs.mode === 'edit' || state.answersTouched
+                    ? {}
+                    : refill({
+                          temperatureF: draft.temperatureF,
+                          activity,
+                      })),
+            });
+        }
+
         function changeTemperature(text: string) {
             if (!draft) {
                 return;
@@ -301,26 +377,14 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
              * temperature. The looked-up feels-like and wind were for the old temperature, so they
              * are cleared unless typed by hand.
              */
-            const prefill = state.answersTouched
-                ? undefined
-                : prefillForTemperature({
-                      activity: 'run',
-                      runs: store.getData().runs,
-                      temperatureF: parseNumber(text) ?? undefined,
-                  });
-            if (prefill) {
-                updateState({
-                    note: prefill.note,
-                });
-            }
             change({
                 temperatureF: text,
-                ...(prefill
-                    ? {
-                          clothing: prefill.clothing,
-                          feeling: prefill.feeling,
-                      }
-                    : {}),
+                ...(state.answersTouched
+                    ? {}
+                    : refill({
+                          temperatureF: text,
+                          activity: draft.activity,
+                      })),
                 ...(state.weatherTouched
                     ? {}
                     : {
@@ -345,6 +409,44 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
                           item,
                       ],
             });
+        }
+
+        function toggleKidsItem(item: string) {
+            if (!draft) {
+                return;
+            }
+            updateState({
+                answersTouched: true,
+            });
+            change({
+                kidsClothing: draft.kidsClothing.includes(item)
+                    ? draft.kidsClothing.filter((existing) => existing !== item)
+                    : [
+                          ...draft.kidsClothing,
+                          item,
+                      ],
+            });
+        }
+
+        function addKidsItem() {
+            if (!draft) {
+                return;
+            }
+            const added = addClothingItem({
+                customClothing: store.getData().settings.customClothing,
+                typed: state.newKidsItem,
+                defaults: defaultKidsClothing,
+            });
+            if (!added) {
+                return;
+            }
+            store.setCustomClothing(added.customClothing);
+            updateState({
+                newKidsItem: '',
+            });
+            if (!draft.kidsClothing.includes(added.item)) {
+                toggleKidsItem(added.item);
+            }
         }
 
         function addItem() {
@@ -383,9 +485,14 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
                     error: 'Pick how you felt.',
                 });
                 return;
+            } else if (draft.activity === activities.walk && !draft.kidsFeeling) {
+                updateState({
+                    error: 'Pick how the kids felt.',
+                });
+                return;
             } else if (!startedAt) {
                 updateState({
-                    error: 'Enter when you ran.',
+                    error: 'Enter when you went out.',
                 });
                 return;
             }
@@ -406,6 +513,7 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
                     points: route.points.length,
                 });
             }
+            const isWalk = draft.activity === activities.walk;
             const run: Run = {
                 id: draft.id ?? globalThis.crypto.randomUUID(),
                 startedAt,
@@ -418,9 +526,9 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
                 notes: draft.notes.trim(),
                 routeId,
                 distanceMiles,
-                activity: 'run',
-                kidsFeeling: null,
-                kidsClothing: [],
+                activity: draft.activity,
+                kidsFeeling: isWalk ? (draft.kidsFeeling ?? null) : null,
+                kidsClothing: isWalk ? draft.kidsClothing : [],
             };
             store.saveRun({
                 run,
@@ -432,11 +540,18 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
             back();
         }
 
-        const headings: Record<RunFormMode, string> = {
-            finish: 'How did it go?',
-            log: 'Log a run',
-            edit: 'Edit run',
-        };
+        const walking = draft.activity === activities.walk;
+        const headings: Record<RunFormMode, string> = walking
+            ? {
+                  finish: 'Finish walk',
+                  log: 'Log a walk',
+                  edit: 'Edit walk',
+              }
+            : {
+                  finish: 'How did it go?',
+                  log: 'Log a run',
+                  edit: 'Edit run',
+              };
 
         const routes = store.getData().routes;
         const pace = paceText({
@@ -447,9 +562,30 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
             customClothing: store.getData().settings.customClothing,
             selected: draft.clothing,
         });
+        const kidsGroups = clothingGroups({
+            customClothing: store.getData().settings.customClothing,
+            selected: draft.kidsClothing,
+            defaults: defaultKidsClothing,
+        });
 
         return html`
             <h2>${headings[inputs.mode]}</h2>
+            <div class="activity" role="group" aria-label="Activity">
+                ${[
+                    activities.run,
+                    activities.walk,
+                ].map((activity) => {
+                    return html`
+                        <button
+                            type="button"
+                            aria-pressed=${draft.activity === activity ? 'true' : 'false'}
+                            ${listen('click', () => changeActivity(activity))}
+                        >
+                            ${activityLabels[activity]}
+                        </button>
+                    `;
+                })}
+            </div>
             ${state.note
                 ? html`
                       <p class="muted">${state.note}</p>
@@ -686,6 +822,82 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
                         })}
                     </div>
                 </fieldset>
+                ${walking
+                    ? html`
+                          <fieldset>
+                              <legend>How were the kids?</legend>
+                              <div class="feelings kids-feelings">
+                                  ${feelingOrder.map((feeling) => {
+                                      return html`
+                                          <button
+                                              type="button"
+                                              aria-pressed=${draft.kidsFeeling === feeling
+                                                  ? 'true'
+                                                  : 'false'}
+                                              ${listen('click', () => {
+                                                  updateState({
+                                                      answersTouched: true,
+                                                  });
+                                                  change({
+                                                      kidsFeeling: feeling,
+                                                  });
+                                              })}
+                                          >
+                                              ${feelingLabels[feeling]}
+                                          </button>
+                                      `;
+                                  })}
+                              </div>
+                          </fieldset>
+
+                          <fieldset>
+                              <legend>Kids wore</legend>
+                              ${kidsGroups.map((group) => {
+                                  return html`
+                                      <div class="group-name">${group.name}</div>
+                                      <div class="chips">
+                                          ${group.items.map((item) => {
+                                              return html`
+                                                  <button
+                                                      type="button"
+                                                      aria-pressed=${draft.kidsClothing.includes(
+                                                          item,
+                                                      )
+                                                          ? 'true'
+                                                          : 'false'}
+                                                      ${listen('click', () => toggleKidsItem(item))}
+                                                  >
+                                                      ${item}
+                                                  </button>
+                                              `;
+                                          })}
+                                      </div>
+                                  `;
+                              })}
+                              <div class="add-item">
+                                  <input
+                                      type="text"
+                                      aria-label="Add a clothing item for the kids"
+                                      placeholder="Something else…"
+                                      enterkeyhint="done"
+                                      .value=${state.newKidsItem}
+                                      ${listen('input', (event) => {
+                                          updateState({
+                                              newKidsItem: (event.target as HTMLInputElement).value,
+                                          });
+                                      })}
+                                      ${listen('keydown', (event) => {
+                                          if (event.key === 'Enter') {
+                                              event.preventDefault();
+                                              addKidsItem();
+                                          }
+                                      })}
+                                  />
+                                  <button type="button" ${listen('click', addKidsItem)}>Add</button>
+                              </div>
+                          </fieldset>
+                      `
+                    : nothing}
 
                 <label>
                     Notes
@@ -706,7 +918,7 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
                           <p class="error" role="alert">${state.error}</p>
                       `
                     : nothing}
-                <button type="submit" class="primary">Save run</button>
+                <button type="submit" class="primary">${walking ? 'Save walk' : 'Save run'}</button>
                 <button type="button" class="link" ${listen('click', back)}>
                     ${inputs.mode === 'finish' ? 'Back to the run' : 'Cancel'}
                 </button>
@@ -716,13 +928,18 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
                               type="button"
                               class="link danger"
                               ${listen('click', () => {
-                                  if (draft.id && globalThis.confirm('Delete this run?')) {
+                                  if (
+                                      draft.id &&
+                                      globalThis.confirm(
+                                          walking ? 'Delete this walk?' : 'Delete this run?',
+                                      )
+                                  ) {
                                       store.deleteRun(draft.id);
                                       goTo(['runs']);
                                   }
                               })}
                           >
-                              Delete run
+                              ${walking ? 'Delete walk' : 'Delete run'}
                           </button>
                       `
                     : nothing}
