@@ -1,4 +1,5 @@
-import {css, defineElement, html, listen} from 'element-vir';
+import {css, defineElement, html, listen, nothing} from 'element-vir';
+import {activities, type Activity} from '../../data/activities.js';
 import {sortNewestFirst} from '../../data/advice.js';
 import {describeClothing} from '../../data/clothing.js';
 import {feelings, feelingShortLabels} from '../../data/feelings.js';
@@ -10,6 +11,23 @@ import {getRunStore} from '../storage.js';
 import {screenStyles} from '../styles.js';
 
 type SortOrder = 'temperature' | 'date';
+
+type Filter = 'all' | Activity;
+
+const filters: ReadonlyArray<{filter: Filter; label: string}> = [
+    {
+        filter: 'all',
+        label: 'All',
+    },
+    {
+        filter: activities.run,
+        label: 'Runs',
+    },
+    {
+        filter: activities.walk,
+        label: 'Walks',
+    },
+];
 
 /** Coldest first (newest first within a temperature), or newest first. */
 function sortRuns({
@@ -46,17 +64,20 @@ export const HistoryScreen = defineElement()({
     styles: css`
         ${screenStyles}
 
-        .sort {
+        .sort,
+        .filter {
             display: flex;
             gap: 6px;
             margin: 8px 0 12px;
         }
 
-        .sort button {
+        .sort button,
+        .filter button {
             border-radius: 999px;
         }
 
-        .sort button[aria-pressed='true'] {
+        .sort button[aria-pressed='true'],
+        .filter button[aria-pressed='true'] {
             border-color: var(--run-accent);
             background: var(--run-selected);
             font-weight: 600;
@@ -85,6 +106,16 @@ export const HistoryScreen = defineElement()({
             font-variant-numeric: tabular-nums;
         }
 
+        .tag {
+            margin-left: 6px;
+            padding: 1px 8px;
+            border: 1px solid var(--run-border);
+            border-radius: 999px;
+            color: var(--run-muted);
+            font-size: 12px;
+            font-weight: 400;
+        }
+
         .feeling {
             font-weight: 600;
         }
@@ -102,6 +133,7 @@ export const HistoryScreen = defineElement()({
         return {
             data: getRunStore().getData() as Readonly<UserData>,
             order: 'temperature' as SortOrder,
+            filter: 'all' as Filter,
             runtime: {
                 unsubscribe: undefined as (() => void) | undefined,
             },
@@ -120,7 +152,9 @@ export const HistoryScreen = defineElement()({
     },
     render({state, updateState}) {
         const runs = sortRuns({
-            runs: state.data.runs,
+            runs: state.data.runs.filter(
+                (run) => state.filter === 'all' || run.activity === state.filter,
+            ),
             order: state.order,
         });
         const orders: ReadonlyArray<{order: SortOrder; label: string}> = [
@@ -143,6 +177,22 @@ export const HistoryScreen = defineElement()({
                             ${listen('click', () => {
                                 return updateState({
                                     order,
+                                });
+                            })}
+                        >
+                            ${label}
+                        </button>
+                    `;
+                })}
+            </div>
+            <div class="filter" role="group" aria-label="Show">
+                ${filters.map(({filter, label}) => {
+                    return html`
+                        <button
+                            aria-pressed=${state.filter === filter ? 'true' : 'false'}
+                            ${listen('click', () => {
+                                return updateState({
+                                    filter,
                                 });
                             })}
                         >
@@ -177,6 +227,11 @@ export const HistoryScreen = defineElement()({
                                               >
                                                   ${capitalize(feelingShortLabels[run.feeling])}
                                               </span>
+                                              ${run.activity === activities.walk
+                                                  ? html`
+                                                        <span class="tag">Walk</span>
+                                                    `
+                                                  : nothing}
                                               <br />
                                               ${capitalize(describeClothing(run.clothing))}
                                               <br />

@@ -99,7 +99,7 @@ so even `@bdemann/*` and electrovir releases younger than 5 days fail with `nota
 -   `src/ui/diagnostics.ts`: the app-kit diagnostic log (`diagnosticLog.log(event, details)`), attached to
     feedback when the person ticks "Attach diagnostic logs". **Privacy rule: log event names and error
     kinds only (`step`, `reason`, `ms`, status codes). Never coordinates, place names, route points,
-    notes or clothing.** Events: `weather-ok`, `error`, `storage-error`, `run-start`, `run-finish`, `run-cancel`,
+    notes or clothing.** Events: `weather-ok`, `error`, `storage-error`, `run-start` (`activity`: run/walk), `run-finish`, `run-cancel`,
     `workout-start` (`test`: yes/no), `workout-finish` (`sets`: a count), `workout-cancel`, `goal-add`, `route-record-start`, `route-saved` (`points`: a count). Never exercise values.
 -   `src/worker/`: Cloudflare Worker: https redirect, `/api/health` (About page), `/api/feedback`
     (app-kit `handleFeedbackRequest`, no sign-in, honeypot on), security headers (CSP allows

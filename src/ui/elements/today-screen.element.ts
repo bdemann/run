@@ -1,11 +1,14 @@
 import {getNowInIsoString} from 'date-vir';
 import {css, defineElement, html, listen, nothing, type HtmlInterpolation} from 'element-vir';
+import {activities, activityLabels, type Activity} from '../../data/activities.js';
 import {
     advise,
+    adviseKids,
     describeConditionsDifference,
     suggestionHeadings,
     suggestions,
     type Advice,
+    type ReferenceRun,
 } from '../../data/advice.js';
 import {describeClothing} from '../../data/clothing.js';
 import {formatElapsed} from '../../data/elapsed.js';
@@ -133,6 +136,103 @@ function renderAdvice(
     `;
 }
 
+const activityOrder: ReadonlyArray<Activity> = [
+    activities.run,
+    activities.walk,
+];
+
+/** One side (you or the kids) of the walk advice card. */
+function renderWalkPart({
+    title,
+    advice,
+}: Readonly<{title: string; advice: Readonly<Advice>}>): HtmlInterpolation {
+    if (advice.kind !== 'suggestion') {
+        return html`
+            <div class="part">
+                <h3>${title}</h3>
+                <p class="muted">No walks near this temperature yet.</p>
+            </div>
+        `;
+    }
+    const {run, exact} = advice.reference;
+    const runF = Math.round(run.temperatureF);
+    return html`
+        <div class="part">
+            <h3>${title}</h3>
+            <p><strong>${suggestionHeadings[advice.suggestion]}</strong></p>
+            <p>
+                ${exact
+                    ? html`
+                          ${formatRunDate(run.startedAt)} at ${runF}°F:
+                      `
+                    : html`
+                          Closest was ${runF}°F on ${formatRunDate(run.startedAt)}:
+                      `}
+                <strong>${describeClothing(run.clothing)}</strong>
+                and felt
+                <strong>${feelingShortLabels[run.feeling]}.</strong>
+            </p>
+        </div>
+    `;
+}
+
+function renderWalkAdvice({
+    you,
+    kids,
+    hasLocation,
+    weather,
+}: Readonly<{
+    you: Readonly<Advice>;
+    kids: Readonly<Advice>;
+    hasLocation: boolean;
+    weather: Readonly<Weather> | undefined;
+}>): HtmlInterpolation {
+    if (you.kind === 'no-temperature') {
+        return renderAdvice(you, hasLocation, weather);
+    } else if (you.kind === 'too-cold' || kids.kind === 'too-cold') {
+        const miserable =
+            kids.kind === 'too-cold' ? kids : you.kind === 'too-cold' ? you : undefined;
+        const who = kids.kind === 'too-cold' ? 'The kids were' : 'You were';
+        return html`
+            <h2>Don't go outside.</h2>
+            <p>${who} miserable at ${miserable?.miserableAtF}°F. It's ${you.temperatureF}°F now.</p>
+            ${stayInside}
+        `;
+    } else if (you.kind === 'no-history' && kids.kind === 'no-history') {
+        return html`
+            <h2>No walks near ${you.temperatureF}°F yet</h2>
+            <p class="muted">
+                Whatever you and the kids wear today becomes the first data point for this
+                temperature.
+            </p>
+        `;
+    } else {
+        const conditions = describeConditionsDifference({
+            reference: (you.kind === 'suggestion' ? you : (kids as {reference: ReferenceRun}))
+                .reference.run,
+            today: {
+                feelsLikeF: weather?.feelsLikeF,
+                windMph: weather?.windMph,
+            },
+        });
+        return html`
+            ${renderWalkPart({
+                title: 'You',
+                advice: you,
+            })}
+            ${renderWalkPart({
+                title: 'Kids',
+                advice: kids,
+            })}
+            ${conditions
+                ? html`
+                      <p>${conditions}</p>
+                  `
+                : nothing}
+        `;
+    }
+}
+
 /**
  * Home. With no run in progress: the temperature, what to wear (from past runs), and Start. With a
  * run in progress: a stopwatch and Finish.
@@ -179,6 +279,38 @@ export const TodayScreen = defineElement()({
             font-size: 18px;
         }
 
+        .advice h3 {
+            margin: 0 0 4px;
+            color: var(--run-muted);
+            font-size: 13px;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .advice .part + .part {
+            margin-top: 12px;
+        }
+
+        .advice p {
+            margin: 0 0 6px;
+        }
+
+        .activity {
+            display: flex;
+            gap: 6px;
+            margin: 0 0 12px;
+        }
+
+        .activity button {
+            border-radius: 999px;
+        }
+
+        .activity button[aria-pressed='true'] {
+            border-color: var(--run-accent);
+            background: var(--run-selected);
+            font-weight: 600;
+        }
+
         .advice.stop {
             background: var(--run-stop-bg);
         }
@@ -217,6 +349,7 @@ export const TodayScreen = defineElement()({
             typedTemperature: '',
             loadingWeather: false,
             starting: false,
+            activity: activities.run as Activity,
             /** `''` for no route, a saved route's id, or {@link recordNewRoute}. */
             routeChoice: '',
             nowMs: Date.now(),
@@ -312,7 +445,7 @@ export const TodayScreen = defineElement()({
                 }
             }
             const activeRun: ActiveRun = {
-                activity: 'run',
+                activity: state.activity,
                 startedAt: getNowInIsoString(),
                 temperatureF: weather?.temperatureF ?? typedTemperatureF,
                 feelsLikeF: weather?.feelsLikeF ?? null,
@@ -329,6 +462,7 @@ export const TodayScreen = defineElement()({
             };
             getRunStore().startRun(activeRun);
             diagnosticLog.log('run-start', {
+                activity: state.activity,
                 weather: weather ? 'yes' : 'no',
             });
             updateState({
@@ -341,7 +475,9 @@ export const TodayScreen = defineElement()({
             const activeRoute = data.routes.find((route) => route.id === active.routeId);
             return html`
                 <div class="card running">
-                    <div class="muted">Running</div>
+                    <div class="muted">
+                        ${active.activity === activities.walk ? 'Walk in progress' : 'Running'}
+                    </div>
                     <div class="clock" role="timer">
                         ${formatElapsed(state.nowMs - Date.parse(active.startedAt))}
                     </div>
@@ -380,29 +516,53 @@ export const TodayScreen = defineElement()({
                         goTo(['finish']);
                     })}
                 >
-                    Finish run
+                    ${active.activity === activities.walk ? 'Finish walk' : 'Finish run'}
                 </button>
                 <button
                     class="link danger"
                     ${listen('click', () => {
-                        if (globalThis.confirm('Throw away this run?')) {
+                        if (
+                            globalThis.confirm(
+                                active.activity === activities.walk
+                                    ? 'Throw away this walk?'
+                                    : 'Throw away this run?',
+                            )
+                        ) {
                             getRunStore().cancelRun();
                             diagnosticLog.log('run-cancel');
                         }
                     })}
                 >
-                    Cancel this run
+                    ${active.activity === activities.walk ? 'Cancel this walk' : 'Cancel this run'}
                 </button>
             `;
         }
 
         const typedTemperatureF = parseNumber(state.typedTemperature) ?? undefined;
         const temperatureF = weather?.temperatureF ?? typedTemperatureF;
+        const walking = state.activity === activities.walk;
         const advice = advise({
-            activity: 'run',
+            activity: state.activity,
             runs: data.runs,
             temperatureF,
         });
+        const kidsAdvice = adviseKids({
+            runs: data.runs,
+            temperatureF,
+        });
+        const tones = walking
+            ? [
+                  adviceTone(advice),
+                  adviceTone(kidsAdvice),
+              ]
+            : [adviceTone(advice)];
+        const tone = tones.includes('stop')
+            ? 'stop'
+            : tones.includes('adjust')
+              ? 'adjust'
+              : tones.includes('go')
+                ? 'go'
+                : '';
 
         return html`
             <div class="card weather">
@@ -482,8 +642,31 @@ export const TodayScreen = defineElement()({
                       `
                     : nothing}
             </div>
-            <div class="card advice ${adviceTone(advice)}" aria-live="polite">
-                ${renderAdvice(advice, !!location, weather)}
+            <div class="activity" role="group" aria-label="Activity">
+                ${activityOrder.map((activity) => {
+                    return html`
+                        <button
+                            aria-pressed=${state.activity === activity ? 'true' : 'false'}
+                            ${listen('click', () => {
+                                updateState({
+                                    activity,
+                                });
+                            })}
+                        >
+                            ${activityLabels[activity]}
+                        </button>
+                    `;
+                })}
+            </div>
+            <div class="card advice ${tone}" aria-live="polite">
+                ${walking
+                    ? renderWalkAdvice({
+                          you: advice,
+                          kids: kidsAdvice,
+                          hasLocation: !!location,
+                          weather,
+                      })
+                    : renderAdvice(advice, !!location, weather)}
             </div>
             <label class="route-choice">
                 Route
@@ -516,7 +699,7 @@ export const TodayScreen = defineElement()({
                 ?disabled=${state.starting}
                 ${listen('click', () => void start())}
             >
-                ${state.starting ? 'Starting…' : 'Start run'}
+                ${state.starting ? 'Starting…' : walking ? 'Start walk' : 'Start run'}
             </button>
             <button class="link" ${listen('click', () => goTo(['log']))}>
                 Log a run I already did

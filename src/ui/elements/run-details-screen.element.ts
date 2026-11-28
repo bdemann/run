@@ -1,4 +1,5 @@
 import {css, defineElement, html, listen, nothing} from 'element-vir';
+import {activities} from '../../data/activities.js';
 import {feelings, feelingShortLabels} from '../../data/feelings.js';
 import {formatMiles, paceText} from '../../data/gps.js';
 import {type Run, type UserData} from '../../data/shapes.js';
@@ -61,6 +62,17 @@ export const RunDetailsScreen = defineElement<{runId: string}>()({
 
         .feeling.miserable {
             color: var(--run-danger);
+        }
+
+        .tag {
+            margin-left: 8px;
+            padding: 1px 8px;
+            border: 1px solid var(--run-border);
+            border-radius: 999px;
+            color: var(--run-muted);
+            font-size: 12px;
+            font-weight: 400;
+            vertical-align: middle;
         }
 
         .stats {
@@ -155,7 +167,14 @@ export const RunDetailsScreen = defineElement<{runId: string}>()({
         const stats = runStats(run);
         return html`
             ${back}
-            <h2>${formatRunDate(run.startedAt)} · ${formatClockTime(run.startedAt)}</h2>
+            <h2>
+                ${formatRunDate(run.startedAt)} · ${formatClockTime(run.startedAt)}
+                ${run.activity === activities.walk
+                    ? html`
+                          <span class="tag">Walk</span>
+                      `
+                    : nothing}
+            </h2>
             <div class="card">
                 <div class="temperature">${Math.round(run.temperatureF)}°F</div>
                 <div class="feeling ${run.feeling === feelings.miserable ? 'miserable' : ''}">
@@ -204,6 +223,37 @@ export const RunDetailsScreen = defineElement<{runId: string}>()({
                           <span class="muted">Nothing logged</span>
                       `}
             </div>
+            ${run.activity === activities.walk
+                ? html`
+                      <div class="card kids">
+                          <h3>Kids</h3>
+                          ${run.kidsFeeling
+                              ? html`
+                                    <div
+                                        class="feeling ${run.kidsFeeling === feelings.miserable
+                                            ? 'miserable'
+                                            : ''}"
+                                    >
+                                        ${capitalize(feelingShortLabels[run.kidsFeeling])}
+                                    </div>
+                                `
+                              : nothing}
+                          ${run.kidsClothing.length
+                              ? html`
+                                    <div class="chips">
+                                        ${run.kidsClothing.map((item) => {
+                                            return html`
+                                                <span class="chip">${item}</span>
+                                            `;
+                                        })}
+                                    </div>
+                                `
+                              : html`
+                                    <span class="muted">Nothing logged</span>
+                                `}
+                      </div>
+                  `
+                : nothing}
             ${run.notes
                 ? html`
                       <div class="card">
