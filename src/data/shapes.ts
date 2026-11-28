@@ -1,6 +1,7 @@
 import {defineShape, enumShape, nullableShape} from 'object-shape-tester';
 import {activities} from './activities.js';
 import {feelings} from './feelings.js';
+import {intensities, precipitationKinds} from './precipitation.js';
 import {activeWorkoutShape, exerciseShape, goalShape, workoutShape} from './workout-shapes.js';
 
 export * from './workout-shapes.js';
@@ -11,6 +12,11 @@ export const currentUserDataVersion = 1;
 export const feelingShape = enumShape(feelings);
 
 export const activityShape = enumShape(activities);
+
+export const precipitationShape = defineShape({
+    kind: enumShape(precipitationKinds),
+    intensity: enumShape(intensities),
+});
 
 /** Where the temperature is looked up. */
 export const locationShape = defineShape({
@@ -81,6 +87,8 @@ export const runShape = defineShape({
     kidsFeeling: nullableShape(feelingShape),
     /** What the kids wore on a walk. Runs always have `[]`. */
     kidsClothing: [''],
+    /** Added later: old runs lack this key (parsing fills `null`). `null` means not known. */
+    precipitation: nullableShape(precipitationShape),
 });
 
 export type Run = typeof runShape.runtimeType;
@@ -93,6 +101,8 @@ export const activeRunShape = defineShape({
     temperatureF: nullableShape(0),
     feelsLikeF: nullableShape(0),
     windMph: nullableShape(0),
+    /** Added later: old documents lack this key (parsing fills `null`). */
+    precipitation: nullableShape(precipitationShape),
     /** Added later: old documents lack these keys (parsing fills `null`). */
     routeId: nullableShape(''),
     /** Set while a route is being recorded; survives the app being swiped away. */

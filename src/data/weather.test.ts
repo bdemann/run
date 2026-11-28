@@ -49,8 +49,24 @@ describe(parseForecast.name, () => {
                 temperatureF: 51.2,
                 feelsLikeF: 47.9,
                 windMph: 4.1,
+                precipitation: null,
             },
         );
+    });
+
+    it('reads the weather code as precipitation', () => {
+        const parsed = parseForecast({
+            current: {
+                temperature_2m: 40,
+                apparent_temperature: 36,
+                wind_speed_10m: 2,
+                weather_code: 61,
+            },
+        });
+        assert.deepEquals(parsed?.precipitation, {
+            kind: 'rain',
+            intensity: 'light',
+        });
     });
 
     it('rejects anything else', () => {
@@ -186,7 +202,43 @@ describe(parseProxyReading.name, () => {
         temperatureF: 1,
         feelsLikeF: 2,
         windMph: 3,
+        precipitation: null,
     };
+
+    it('reads precipitation when present and ignores a bad one', () => {
+        const precipitation = {
+            kind: 'snow' as const,
+            intensity: 'heavy' as const,
+        };
+        function read(value: unknown) {
+            return parseProxyReading({
+                weather: {
+                    temperatureF: 1,
+                    feelsLikeF: 2,
+                    windMph: 3,
+                    ...(value as object),
+                },
+                source: 'nws',
+                observedAt: null,
+                station: null,
+            })?.weather.precipitation;
+        }
+        assert.deepEquals(
+            read({
+                precipitation,
+            }),
+            precipitation,
+        );
+        assert.isNull(read({}));
+        assert.isNull(
+            read({
+                precipitation: {
+                    kind: 'hail-of-frogs',
+                    intensity: 'heavy',
+                },
+            }),
+        );
+    });
 
     it('reads an NWS and an Open-Meteo answer', () => {
         assert.deepEquals(
@@ -373,6 +425,34 @@ describe(parseNwsObservation.name, () => {
         });
         assert.strictEquals(plain?.weather.feelsLikeF, plain?.weather.temperatureF);
         assert.strictEquals(plain?.weather.windMph, 0);
+    });
+
+    it('reads present weather as precipitation', () => {
+        function withWeather(presentWeather: unknown) {
+            return parseNwsObservation({
+                json: observation({
+                    presentWeather,
+                }),
+                nowMs,
+            })?.weather.precipitation;
+        }
+        assert.isNull(withWeather(undefined));
+        assert.deepEquals(withWeather([]), {
+            kind: 'none',
+            intensity: 'light',
+        });
+        assert.deepEquals(
+            withWeather([
+                {
+                    intensity: 'light',
+                    weather: 'rain',
+                },
+            ]),
+            {
+                kind: 'rain',
+                intensity: 'light',
+            },
+        );
     });
 
     it('copes with a missing wind chill entirely', () => {

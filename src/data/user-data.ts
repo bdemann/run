@@ -62,6 +62,7 @@ function oldRunDefaults(): Record<string, unknown> {
         activity: 'run',
         kidsFeeling: null,
         kidsClothing: [],
+        precipitation: null,
     };
 }
 
@@ -70,6 +71,7 @@ function oldActiveRunDefaults(): Record<string, unknown> {
         routeId: null,
         recording: null,
         activity: 'run',
+        precipitation: null,
     };
 }
 

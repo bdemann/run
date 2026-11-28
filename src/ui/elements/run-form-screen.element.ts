@@ -11,6 +11,15 @@ import {minutesSince} from '../../data/elapsed.js';
 import {feelingLabels, feelingOrder, type Feeling} from '../../data/feelings.js';
 import {formatMiles, paceText, simplifyPoints, trackDistanceMiles} from '../../data/gps.js';
 import {parseNumber} from '../../data/parse-number.js';
+import {
+    intensities,
+    intensityLabels,
+    intensityOrder,
+    precipitationKindLabels,
+    precipitationKindOrder,
+    precipitationKinds,
+    type Precipitation,
+} from '../../data/precipitation.js';
 import {type RecordedPoint, type Route, type Run} from '../../data/shapes.js';
 import {goTo} from '../../router.js';
 import {inputValueToIso, isoToInputValue} from '../dates.js';
@@ -31,6 +40,8 @@ type Draft = {
     temperatureF: string;
     feelsLikeF: string;
     windMph: string;
+    /** `null` is not known. */
+    precipitation: Precipitation | null;
     activity: Activity;
     clothing: string[];
     feeling: Feeling | undefined;
@@ -72,6 +83,7 @@ function initialDraft({mode, runId}: Readonly<{mode: RunFormMode; runId?: string
                 temperatureF: numberText(run.temperatureF),
                 feelsLikeF: numberText(run.feelsLikeF),
                 windMph: numberText(run.windMph),
+                precipitation: run.precipitation ?? null,
                 activity: run.activity,
                 clothing: [...run.clothing],
                 feeling: run.feeling,
@@ -123,6 +135,7 @@ function initialDraft({mode, runId}: Readonly<{mode: RunFormMode; runId?: string
             temperatureF: numberText(active.temperatureF),
             feelsLikeF: numberText(active.feelsLikeF),
             windMph: numberText(active.windMph),
+            precipitation: active.precipitation ?? null,
             routeId: route?.id ?? '',
             distanceMiles:
                 recorded.length > 1
@@ -138,6 +151,7 @@ function initialDraft({mode, runId}: Readonly<{mode: RunFormMode; runId?: string
             temperatureF: numberText(weather?.temperatureF),
             feelsLikeF: numberText(weather?.feelsLikeF),
             windMph: numberText(weather?.windMph),
+            precipitation: weather?.precipitation ?? null,
             routeId: '',
             distanceMiles: '',
         };
@@ -217,6 +231,10 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
 
         .chips button {
             border-radius: 999px;
+        }
+
+        .chips.intensity {
+            margin-top: 6px;
         }
 
         .activity {
@@ -390,6 +408,7 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
                     : {
                           feelsLikeF: '',
                           windMph: '',
+                          precipitation: null,
                       }),
             });
         }
@@ -521,6 +540,7 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
                 temperatureF,
                 feelsLikeF: parseNumber(draft.feelsLikeF),
                 windMph: parseNumber(draft.windMph),
+                precipitation: draft.precipitation,
                 clothing: draft.clothing,
                 feeling: draft.feeling,
                 notes: draft.notes.trim(),
@@ -670,6 +690,72 @@ export const RunFormScreen = defineElement<{mode: RunFormMode; runId?: string | 
                         />
                     </label>
                 </div>
+
+                <fieldset class="precipitation">
+                    <legend>Precipitation</legend>
+                    <div class="chips">
+                        ${precipitationKindOrder.map((kind) => {
+                            return html`
+                                <button
+                                    type="button"
+                                    aria-pressed=${draft.precipitation?.kind === kind
+                                        ? 'true'
+                                        : 'false'}
+                                    ${listen('click', () => {
+                                        updateState({
+                                            weatherTouched: true,
+                                        });
+                                        change({
+                                            precipitation:
+                                                draft.precipitation?.kind === kind
+                                                    ? null
+                                                    : {
+                                                          kind,
+                                                          intensity:
+                                                              kind === precipitationKinds.none
+                                                                  ? intensities.light
+                                                                  : (draft.precipitation
+                                                                        ?.intensity ??
+                                                                    intensities.moderate),
+                                                      },
+                                        });
+                                    })}
+                                >
+                                    ${precipitationKindLabels[kind]}
+                                </button>
+                            `;
+                        })}
+                    </div>
+                    ${draft.precipitation && draft.precipitation.kind !== precipitationKinds.none
+                        ? html`
+                              <div class="chips intensity">
+                                  ${intensityOrder.map((intensity) => {
+                                      return html`
+                                          <button
+                                              type="button"
+                                              aria-pressed=${draft.precipitation?.intensity ===
+                                              intensity
+                                                  ? 'true'
+                                                  : 'false'}
+                                              ${listen('click', () => {
+                                                  if (draft.precipitation) {
+                                                      change({
+                                                          precipitation: {
+                                                              kind: draft.precipitation.kind,
+                                                              intensity,
+                                                          },
+                                                      });
+                                                  }
+                                              })}
+                                          >
+                                              ${intensityLabels[intensity]}
+                                          </button>
+                                      `;
+                                  })}
+                              </div>
+                          `
+                        : nothing}
+                </fieldset>
 
                 <div class="row">
                     <label>

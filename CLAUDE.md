@@ -74,6 +74,10 @@ so even `@bdemann/*` and electrovir releases younger than 5 days fail with `nota
         `adviseKids` runs the same rules over walks' kids feeling/clothing. `defaultKidsClothing`
         is the kids' clothing list (`clothingGroups` / `addClothingItem` take optional `defaults`).
         Old documents get these keys from defaults in `parseUserData` (no version bump).
+    -   `precipitation.ts`: kind + intensity (`none`, `drizzle`, `rain`, `snow`, `sleet`,
+        `thunderstorm`), mappers from WMO codes (Open-Meteo `weather_code`) and NWS `presentWeather`,
+        and `describePrecipitation`. It rides on `Weather.precipitation` and is stored on runs and the
+        active run (`null` = unknown). Advice does not use it yet.
     -   `shapes.ts`, `user-data.ts`, `run-store.ts`: the one stored document (`UserData`, also the
         export/import format), lenient parsing (bad runs are dropped one by one), and `RunStore`,
         the only API the UI uses (`subscribe` to re-render).
@@ -99,7 +103,7 @@ so even `@bdemann/*` and electrovir releases younger than 5 days fail with `nota
 -   `src/ui/diagnostics.ts`: the app-kit diagnostic log (`diagnosticLog.log(event, details)`), attached to
     feedback when the person ticks "Attach diagnostic logs". **Privacy rule: log event names and error
     kinds only (`step`, `reason`, `ms`, status codes). Never coordinates, place names, route points,
-    notes or clothing.** Events: `weather-ok`, `error`, `storage-error`, `run-start` (`activity`: run/walk), `run-finish`, `run-cancel`,
+    notes or clothing.** Events: `weather-ok` (`source`, `ms`, `precipitation`: a kind), `error`, `storage-error`, `run-start` (`activity`: run/walk), `run-finish`, `run-cancel`,
     `workout-start` (`test`: yes/no), `workout-finish` (`sets`: a count), `workout-cancel`, `goal-add`, `route-record-start`, `route-saved` (`points`: a count). Never exercise values.
 -   `src/worker/`: Cloudflare Worker: https redirect, `/api/health` (About page), `/api/feedback`
     (app-kit `handleFeedbackRequest`, no sign-in, honeypot on), security headers (CSP allows

@@ -96,6 +96,7 @@ async function fetchViaWorker(
             diagnosticLog.log('weather-ok', {
                 source: reading.source,
                 ms: Date.now() - startMs,
+                precipitation: reading.weather.precipitation?.kind ?? 'unknown',
             });
         } else {
             diagnosticLog.log('error', {

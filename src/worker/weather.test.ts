@@ -10,6 +10,7 @@ const openMeteoBody = {
         temperature_2m: 50,
         apparent_temperature: 46,
         wind_speed_10m: 3,
+        weather_code: 63,
     },
 };
 const pointBody = {
@@ -46,6 +47,12 @@ const goodObservation = {
         heatIndex: {
             value: null,
         },
+        presentWeather: [
+            {
+                intensity: 'light',
+                weather: 'snow',
+            },
+        ],
     },
 };
 const nullObservation = {
@@ -126,6 +133,10 @@ describe(handleWeatherRequest.name, () => {
                 temperatureF: 32,
                 feelsLikeF: 32,
                 windMph: 0,
+                precipitation: {
+                    kind: 'snow',
+                    intensity: 'light',
+                },
             },
             source: 'nws',
             observedAt: '2026-11-17T15:56:00+00:00',
@@ -159,6 +170,10 @@ describe(handleWeatherRequest.name, () => {
                 temperatureF: 50,
                 feelsLikeF: 46,
                 windMph: 3,
+                precipitation: {
+                    kind: 'rain',
+                    intensity: 'moderate',
+                },
             },
             source: 'open-meteo',
             observedAt: null,

@@ -23,6 +23,7 @@ export function testRun(
         activity: 'run',
         kidsFeeling: null,
         kidsClothing: [],
+        precipitation: null,
         ...overrides,
     };
 }

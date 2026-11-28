@@ -2,6 +2,7 @@ import {css, defineElement, html, listen, nothing} from 'element-vir';
 import {activities} from '../../data/activities.js';
 import {feelings, feelingShortLabels} from '../../data/feelings.js';
 import {formatMiles, paceText} from '../../data/gps.js';
+import {describePrecipitation, precipitationKinds} from '../../data/precipitation.js';
 import {type Run, type UserData} from '../../data/shapes.js';
 import {goTo} from '../../router.js';
 import {formatClockTime, formatRunDate} from '../dates.js';
@@ -39,6 +40,13 @@ function runStats(run: Readonly<Run>): ReadonlyArray<{label: string; value: stri
         {
             label: 'Wind',
             value: run.windMph == undefined ? '' : `${Math.round(run.windMph)} mph`,
+        },
+        {
+            label: 'Precipitation',
+            value:
+                run.precipitation && run.precipitation.kind !== precipitationKinds.none
+                    ? describePrecipitation(run.precipitation)
+                    : '',
         },
     ].filter((stat) => stat.value);
 }

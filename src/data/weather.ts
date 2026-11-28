@@ -1,13 +1,16 @@
 import {defineShape, nullableShape} from 'object-shape-tester';
 import {apiPaths} from './app-info.js';
+import {precipitationFromNws, precipitationFromWmo, type Precipitation} from './precipitation.js';
 import {checkShape} from './shape-check.js';
-import {type RunLocation} from './shapes.js';
+import {precipitationShape, type RunLocation} from './shapes.js';
 
 /** Current conditions, as recorded on a run. */
 export type Weather = {
     temperatureF: number;
     feelsLikeF: number;
     windMph: number;
+    /** `null` when the source did not say. */
+    precipitation: Precipitation | null;
 };
 
 /**
@@ -23,7 +26,7 @@ export function forecastUrl(
     const params = new URLSearchParams({
         latitude: String(location.latitude),
         longitude: String(location.longitude),
-        current: 'temperature_2m,apparent_temperature,wind_speed_10m',
+        current: 'temperature_2m,apparent_temperature,wind_speed_10m,weather_code',
         temperature_unit: 'fahrenheit',
         wind_speed_unit: 'mph',
     });
@@ -65,6 +68,11 @@ const proxyReadingShape = defineShape({
     station: nullableShape(''),
 });
 
+/** A stored-shape precipitation, or `null` for anything else (an older Worker omits it). */
+function readPrecipitation(value: unknown): Precipitation | null {
+    return checkShape(value, precipitationShape) ? value : null;
+}
+
 /** Reads the Worker's whole `/api/weather` answer, or `undefined` when it is not that shape. */
 export function parseProxyReading(json: unknown): WeatherReading | undefined {
     if (
@@ -81,6 +89,9 @@ export function parseProxyReading(json: unknown): WeatherReading | undefined {
                 temperatureF: json.weather.temperatureF,
                 feelsLikeF: json.weather.feelsLikeF,
                 windMph: json.weather.windMph,
+                precipitation: readPrecipitation(
+                    (json.weather as {precipitation?: unknown}).precipitation,
+                ),
             },
             source: json.source,
             observedAt: json.observedAt ?? null,
@@ -106,10 +117,12 @@ export function parseForecast(json: unknown): Weather | undefined {
     ) {
         return undefined;
     }
+    const weatherCode = (json.current as {weather_code?: unknown}).weather_code;
     return {
         temperatureF: json.current.temperature_2m,
         feelsLikeF: json.current.apparent_temperature,
         windMph: json.current.wind_speed_10m,
+        precipitation: typeof weatherCode === 'number' ? precipitationFromWmo(weatherCode) : null,
     };
 }
 
@@ -293,6 +306,9 @@ export function parseNwsObservation({
             temperatureF: celsiusToF(temperatureC),
             feelsLikeF: celsiusToF(feelsLikeC),
             windMph: kmhToMph(readNwsValue(properties, 'windSpeed') ?? 0),
+            precipitation: precipitationFromNws(
+                (properties as {presentWeather?: unknown}).presentWeather,
+            ),
         },
         observedAt: properties.timestamp,
     };
