@@ -58,6 +58,7 @@ function renderActive({
     setVariation,
     finish,
     edit,
+    closeEdit,
     askCancel,
     cancel,
 }: Readonly<{
@@ -69,6 +70,7 @@ function renderActive({
     setVariation: (params: SetVariationParams) => void;
     finish: (workout: Readonly<ActiveWorkout>) => void;
     edit: (index: number) => void;
+    closeEdit: () => void;
     askCancel: (asking: boolean) => void;
     cancel: () => void;
 }>): HtmlInterpolation {
@@ -76,6 +78,13 @@ function renderActive({
     const exerciseIds = removeDuplicates(active.sets.map((set) => set.exerciseId));
     return html`
         <h2>${active.isTest ? 'Baseline test' : 'Workout'}</h2>
+        ${active.isTest
+            ? nothing
+            : html`
+                  <p class="muted">
+                      Tap a set when you finish it. Tap it again to change the count.
+                  </p>
+              `}
         ${exerciseIds.map((exerciseId) => {
             const exercise = exerciseOf({
                 data,
@@ -89,6 +98,14 @@ function renderActive({
                     };
                 })
                 .filter(({set}) => set.exerciseId === exerciseId);
+            const editorIndexed = indexed.find(({index}) => index === editingSet);
+            const editor =
+                editorIndexed && editorIndexed.set.value > 0
+                    ? {
+                          ...editorIndexed,
+                          number: indexed.indexOf(editorIndexed) + 1,
+                      }
+                    : undefined;
             const variationName =
                 exercise?.variations.find((variation) => {
                     return variation.id === indexed[0]?.set.variationId;
@@ -165,48 +182,96 @@ function renderActive({
                               <div class="sets">
                                   ${indexed.map(({set, index}) => {
                                       const done = set.value > 0;
-                                      return editingSet === index && done
-                                          ? html`
-                                                <input
-                                                    class="set-edit"
-                                                    type="number"
-                                                    min="0"
-                                                    aria-label="Reps done"
-                                                    .value=${String(set.value)}
-                                                    ${listen('change', (event) => {
-                                                        setValue({
-                                                            workout: active,
-                                                            index,
-                                                            value: doneValue(
-                                                                (event.target as HTMLInputElement)
-                                                                    .value,
-                                                            ),
-                                                        });
-                                                    })}
-                                                />
-                                            `
-                                          : html`
-                                                <button
-                                                    type="button"
-                                                    class="set-button"
-                                                    aria-pressed=${done ? 'true' : 'false'}
-                                                    ${listen('click', () => {
-                                                        if (done) {
-                                                            edit(index);
-                                                        } else {
-                                                            setValue({
-                                                                workout: active,
-                                                                index,
-                                                                value: set.target,
-                                                            });
-                                                        }
-                                                    })}
-                                                >
-                                                    ${done ? set.value : set.target}
-                                                </button>
-                                            `;
+                                      return html`
+                                          <button
+                                              type="button"
+                                              class="set-button"
+                                              aria-pressed=${done ? 'true' : 'false'}
+                                              ?data-editing=${editingSet === index && done}
+                                              ${listen('click', () => {
+                                                  if (!done) {
+                                                      setValue({
+                                                          workout: active,
+                                                          index,
+                                                          value: set.target,
+                                                      });
+                                                      closeEdit();
+                                                  } else if (editingSet === index) {
+                                                      closeEdit();
+                                                  } else {
+                                                      edit(index);
+                                                  }
+                                              })}
+                                          >
+                                              ${done ? set.value : set.target}
+                                          </button>
+                                      `;
                                   })}
                               </div>
+                              ${editor
+                                  ? html`
+                                        <div class="set-editor">
+                                            <span class="set-editor-label">
+                                                Set ${editor.number} ·
+                                                ${exercise?.measure === 'seconds'
+                                                    ? 'seconds'
+                                                    : 'reps'}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                class="step"
+                                                aria-label="Fewer"
+                                                ?disabled=${editor.set.value <= 1}
+                                                ${listen('click', () => {
+                                                    setValue({
+                                                        workout: active,
+                                                        index: editor.index,
+                                                        value: Math.max(1, editor.set.value - 1),
+                                                    });
+                                                })}
+                                            >
+                                                −
+                                            </button>
+                                            <span class="set-editor-value">
+                                                ${editor.set.value}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                class="step"
+                                                aria-label="More"
+                                                ${listen('click', () => {
+                                                    setValue({
+                                                        workout: active,
+                                                        index: editor.index,
+                                                        value: editor.set.value + 1,
+                                                    });
+                                                })}
+                                            >
+                                                +
+                                            </button>
+                                            <button
+                                                type="button"
+                                                ${listen('click', () => {
+                                                    setValue({
+                                                        workout: active,
+                                                        index: editor.index,
+                                                        value: 0,
+                                                    });
+                                                    closeEdit();
+                                                })}
+                                            >
+                                                Not done
+                                            </button>
+                                            <button
+                                                type="button"
+                                                class="primary"
+                                                ${listen('click', closeEdit)}
+                                            >
+                                                OK
+                                            </button>
+                                        </div>
+                                    `
+                                  : nothing}
                           `}
                 </div>
             `;
@@ -296,10 +361,34 @@ export const WorkoutScreen = defineElement()({
             color: var(--run-text);
         }
 
-        .set-edit {
-            width: 72px;
-            min-height: 56px;
+        .set-button[data-editing] {
+            outline: 3px solid var(--run-focus);
+            outline-offset: 2px;
+        }
+
+        .set-editor {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .set-editor-label {
+            flex: 1 1 100%;
+            color: var(--run-muted);
+        }
+
+        .set-editor button {
+            min-width: 44px;
+            min-height: 44px;
+        }
+
+        .set-editor-value {
+            min-width: 48px;
             font-size: 22px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
             text-align: center;
         }
 
@@ -460,6 +549,11 @@ export const WorkoutScreen = defineElement()({
                 edit(index) {
                     updateState({
                         editingSet: index,
+                    });
+                },
+                closeEdit() {
+                    updateState({
+                        editingSet: undefined,
                     });
                 },
                 askCancel(asking) {
