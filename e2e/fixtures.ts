@@ -1,7 +1,26 @@
 import {test as base, expect, type Page} from '@playwright/test';
 
 /** The forecast the mocked weather service answers with, changeable by a test. */
-export type MockWeather = {temperatureF: number; feelsLikeF: number; windMph: number};
+export type MockWeather = {
+    temperatureF: number;
+    feelsLikeF: number;
+    windMph: number;
+    /** What is falling; the Worker mock sends it as is and Open-Meteo gets a matching WMO code. */
+    precipitation?: {kind: 'rain' | 'snow'; intensity: 'light' | 'moderate' | 'heavy'};
+};
+
+const wmoCodes = {
+    rain: {
+        light: 61,
+        moderate: 63,
+        heavy: 65,
+    },
+    snow: {
+        light: 71,
+        moderate: 73,
+        heavy: 75,
+    },
+};
 
 export const defaultWeather: Readonly<MockWeather> = {
     temperatureF: 51,
@@ -48,6 +67,11 @@ export const test = base.extend<{weather: MockWeather; allowedConsoleErrors: str
                             temperature_2m: weather.temperatureF,
                             apparent_temperature: weather.feelsLikeF,
                             wind_speed_10m: weather.windMph,
+                            weather_code: weather.precipitation
+                                ? wmoCodes[weather.precipitation.kind][
+                                      weather.precipitation.intensity
+                                  ]
+                                : 0,
                         },
                     },
                 });

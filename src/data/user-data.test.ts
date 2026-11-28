@@ -109,6 +109,7 @@ describe('activity data', () => {
         delete oldRun['activity'];
         delete oldRun['kidsFeeling'];
         delete oldRun['kidsClothing'];
+        delete oldRun['precipitation'];
         const parsed = parseUserData({
             runs: [
                 oldRun,
@@ -161,6 +162,7 @@ describe('route data', () => {
             windMph: null,
             routeId: null,
             recording: null,
+            precipitation: null,
         });
         assert.deepEquals(parsed.data.routes, []);
     });
@@ -199,6 +201,10 @@ describe('route data', () => {
             feelsLikeF: null,
             windMph: null,
             routeId: null,
+            precipitation: {
+                kind: 'snow' as const,
+                intensity: 'heavy' as const,
+            },
             recording: {
                 points: [
                     {
@@ -445,5 +451,40 @@ describe(mergeUserData.name, () => {
 describe(exportFilename.name, () => {
     it('uses the date', () => {
         assert.strictEquals(exportFilename('2026-11-17T13:00:00.000Z'), 'run-log-2026-11-17.json');
+    });
+});
+
+describe('precipitation data', () => {
+    it('round-trips precipitation on a run', () => {
+        const wet = testRun({
+            id: 'wet',
+            temperatureF: 40,
+            feeling: feelings.right,
+            precipitation: {
+                kind: 'rain',
+                intensity: 'light',
+            },
+        });
+        assert.deepEquals(
+            parseUserData({
+                runs: [wet],
+            }).data.runs,
+            [wet],
+        );
+    });
+
+    it('drops a run with an unknown precipitation kind', () => {
+        const parsed = parseUserData({
+            runs: [
+                {
+                    ...run51,
+                    precipitation: {
+                        kind: 'locusts',
+                        intensity: 'light',
+                    },
+                },
+            ],
+        });
+        assert.strictEquals(parsed.droppedRuns, 1);
     });
 });

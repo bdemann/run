@@ -16,6 +16,11 @@ import {feelingShortLabels} from '../../data/feelings.js';
 import {describeWeek} from '../../data/goal-plan.js';
 import {formatMiles} from '../../data/gps.js';
 import {parseNumber} from '../../data/parse-number.js';
+import {
+    describePrecipitation,
+    describeWetNote,
+    precipitationKinds,
+} from '../../data/precipitation.js';
 import {type ActiveRun, type UserData} from '../../data/shapes.js';
 import {type Weather, type WeatherReading} from '../../data/weather.js';
 import {sessionsInRange} from '../../data/workouts.js';
@@ -450,6 +455,7 @@ export const TodayScreen = defineElement()({
                 temperatureF: weather?.temperatureF ?? typedTemperatureF,
                 feelsLikeF: weather?.feelsLikeF ?? null,
                 windMph: weather?.windMph ?? null,
+                precipitation: weather?.precipitation ?? null,
                 routeId: data.routes.some((route) => route.id === state.routeChoice)
                     ? state.routeChoice
                     : null,
@@ -564,6 +570,8 @@ export const TodayScreen = defineElement()({
                 ? 'go'
                 : '';
 
+        const wetNote = describeWetNote(weather?.precipitation ?? null);
+
         return html`
             <div class="card weather">
                 ${weather
@@ -594,6 +602,14 @@ export const TodayScreen = defineElement()({
                         ? html`
                               <div>Feels like ${round(weather.feelsLikeF)}°</div>
                               <div>Wind ${round(weather.windMph)} mph</div>
+                              ${weather.precipitation &&
+                              weather.precipitation.kind !== precipitationKinds.none
+                                  ? html`
+                                        <div class="precipitation">
+                                            ${describePrecipitation(weather.precipitation)}
+                                        </div>
+                                    `
+                                  : nothing}
                           `
                         : nothing}
                     ${state.reading
@@ -668,6 +684,11 @@ export const TodayScreen = defineElement()({
                       })
                     : renderAdvice(advice, !!location, weather)}
             </div>
+            ${wetNote
+                ? html`
+                      <p class="muted wet-note">${wetNote}</p>
+                  `
+                : nothing}
             <label class="route-choice">
                 Route
                 <select

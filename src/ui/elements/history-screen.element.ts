@@ -4,6 +4,7 @@ import {sortNewestFirst} from '../../data/advice.js';
 import {describeClothing} from '../../data/clothing.js';
 import {feelings, feelingShortLabels} from '../../data/feelings.js';
 import {formatMiles, paceText} from '../../data/gps.js';
+import {describePrecipitation, precipitationKinds} from '../../data/precipitation.js';
 import {type Run, type UserData} from '../../data/shapes.js';
 import {goTo} from '../../router.js';
 import {formatRunDate} from '../dates.js';
@@ -227,6 +228,16 @@ export const HistoryScreen = defineElement()({
                                               >
                                                   ${capitalize(feelingShortLabels[run.feeling])}
                                               </span>
+                                              ${run.precipitation &&
+                                              run.precipitation.kind !== precipitationKinds.none
+                                                  ? html`
+                                                        <span class="tag">
+                                                            ${describePrecipitation(
+                                                                run.precipitation,
+                                                            )}
+                                                        </span>
+                                                    `
+                                                  : nothing}
                                               ${run.activity === activities.walk
                                                   ? html`
                                                         <span class="tag">Walk</span>
