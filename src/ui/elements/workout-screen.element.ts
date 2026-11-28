@@ -11,9 +11,14 @@ import {
     goalsReachedBetween,
     needsBaseline,
     planWorkout,
-    totalSets,
+    summarizeWorkout,
 } from '../../data/workout-plan.js';
-import {type ActiveWorkout, type Exercise} from '../../data/workout-shapes.js';
+import {
+    measures,
+    type ActiveWorkout,
+    type Exercise,
+    type Workout,
+} from '../../data/workout-shapes.js';
 import {retestDue} from '../../data/workouts.js';
 import {goTo} from '../../router.js';
 import {formatRunDate} from '../dates.js';
@@ -33,6 +38,22 @@ function exerciseOf({
     id,
 }: Readonly<{data: Readonly<UserData>; id: string}>): Readonly<Exercise> | undefined {
     return allExercises(data).find((exercise) => exercise.id === id);
+}
+
+/** "23 reps · 3 exercises" for a recent-workouts row. */
+function describeWorkoutRow({
+    workout,
+    data,
+}: Readonly<{workout: Readonly<Workout>; data: Readonly<UserData>}>): string {
+    const summaries = summarizeWorkout({
+        workout,
+        data,
+    });
+    const reps = summaries
+        .filter((summary) => summary.measure === measures.reps)
+        .reduce((sum, summary) => sum + summary.total, 0);
+    const exercises = `${summaries.length} ${summaries.length === 1 ? 'exercise' : 'exercises'}`;
+    return reps ? `${reps} reps · ${exercises}` : exercises;
 }
 
 /** A typed count: positive numbers stay, anything else means "not done" (0). */
@@ -440,7 +461,7 @@ export const WorkoutScreen = defineElement()({
         return {
             data: getRunStore().getData() as Readonly<UserData>,
             summary: undefined as Summary | undefined,
-            /** 'cancel', or the id of the workout asked to delete. */
+            /** 'cancel' while asking to discard the workout in progress. */
             confirming: undefined as string | undefined,
             editingSet: undefined as number | undefined,
             runtime: {
@@ -624,60 +645,34 @@ export const WorkoutScreen = defineElement()({
                 ? html`
                       <ul class="recent">
                           ${recent.map((workout) => {
-                              return state.confirming === workout.id
-                                  ? html`
-                                        <li class="card confirm">
-                                            <p>Delete this workout?</p>
-                                            <div class="actions">
-                                                <button
-                                                    type="button"
-                                                    ${listen('click', () => {
-                                                        updateState({
-                                                            confirming: undefined,
-                                                        });
-                                                    })}
-                                                >
-                                                    Keep
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    class="danger"
-                                                    ${listen('click', () => {
-                                                        store.deleteWorkout(workout.id);
-                                                        updateState({
-                                                            confirming: undefined,
-                                                        });
-                                                    })}
-                                                >
-                                                    Delete
-                                                </button>
-                                            </div>
-                                        </li>
-                                    `
-                                  : html`
-                                        <li>
-                                            <button
-                                                type="button"
-                                                ${listen('click', () => {
-                                                    updateState({
-                                                        confirming: workout.id,
-                                                    });
-                                                })}
-                                            >
-                                                <span>
-                                                    ${formatRunDate(workout.startedAt)}
-                                                    ${workout.isTest
-                                                        ? html`
-                                                              <span class="tag">Test</span>
-                                                          `
-                                                        : nothing}
-                                                </span>
-                                                <span class="muted">
-                                                    ${totalSets(workout)} sets
-                                                </span>
-                                            </button>
-                                        </li>
-                                    `;
+                              return html`
+                                  <li>
+                                      <button
+                                          type="button"
+                                          ${listen('click', () => {
+                                              goTo([
+                                                  'workout',
+                                                  workout.id,
+                                              ]);
+                                          })}
+                                      >
+                                          <span>
+                                              ${formatRunDate(workout.startedAt)}
+                                              ${workout.isTest
+                                                  ? html`
+                                                        <span class="tag">Test</span>
+                                                    `
+                                                  : nothing}
+                                          </span>
+                                          <span class="muted">
+                                              ${describeWorkoutRow({
+                                                  workout,
+                                                  data,
+                                              })}
+                                          </span>
+                                      </button>
+                                  </li>
+                              `;
                           })}
                       </ul>
                   `
