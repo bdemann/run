@@ -10,7 +10,9 @@ import {
     goalsReachedBetween,
     needsBaseline,
     planWorkout,
+    summarizeWorkout,
     totalSets,
+    type ExerciseSummary,
 } from './workout-plan.js';
 import {type Exercise} from './workout-shapes.js';
 
@@ -355,6 +357,113 @@ describe(goalsReachedBetween.name, () => {
             goalsReachedBetween({
                 before: [open],
                 after: [open],
+            }),
+            [],
+        );
+    });
+});
+
+describe(summarizeWorkout.name, () => {
+    const plank: Exercise = {
+        id: 'plank',
+        name: 'Plank',
+        measure: 'seconds',
+        variations: [
+            {
+                id: 'forearm',
+                name: 'Forearm plank',
+            },
+        ],
+        cues: [],
+    };
+
+    it('groups sets by exercise in order of first appearance', () => {
+        const summary = summarizeWorkout({
+            workout: testWorkout({
+                id: 'w',
+                sets: [
+                    testSet({
+                        exerciseId: 'situp',
+                        variationId: 'nope',
+                        value: 8,
+                    }),
+                    testSet({
+                        value: 10,
+                    }),
+                    testSet({
+                        exerciseId: 'situp',
+                        variationId: 'nope',
+                        value: 7,
+                    }),
+                    testSet({
+                        value: 9,
+                    }),
+                ],
+            }),
+            data: {
+                exercises: [],
+                workouts: [],
+            },
+        });
+        assert.deepEquals(
+            summary.map((item) => item.exerciseId),
+            [
+                'situp',
+                'pushup',
+            ],
+        );
+        assert.deepEquals(
+            (summary[0] as ExerciseSummary).values,
+            [
+                8,
+                7,
+            ],
+        );
+        assert.strictEquals((summary[0] as ExerciseSummary).total, 15);
+        assert.strictEquals((summary[1] as ExerciseSummary).total, 19);
+        assert.strictEquals((summary[1] as ExerciseSummary).name, 'Pushup');
+        assert.strictEquals((summary[1] as ExerciseSummary).variationName, 'Knee pushup');
+        assert.strictEquals((summary[0] as ExerciseSummary).variationName, '');
+    });
+
+    it('uses the id and reps for an unknown exercise, the real measure for a known one', () => {
+        const summary = summarizeWorkout({
+            workout: testWorkout({
+                id: 'w',
+                sets: [
+                    testSet({
+                        exerciseId: 'ghost',
+                        variationId: 'x',
+                        value: 3,
+                    }),
+                    testSet({
+                        exerciseId: 'plank',
+                        variationId: 'forearm',
+                        value: 45,
+                    }),
+                ],
+            }),
+            data: {
+                exercises: [plank],
+                workouts: [],
+            },
+        });
+        assert.strictEquals((summary[0] as ExerciseSummary).name, 'ghost');
+        assert.strictEquals((summary[0] as ExerciseSummary).measure, 'reps');
+        assert.strictEquals((summary[1] as ExerciseSummary).measure, 'seconds');
+        assert.strictEquals((summary[1] as ExerciseSummary).variationName, 'Forearm plank');
+    });
+
+    it('is empty for a workout with no sets', () => {
+        assert.deepEquals(
+            summarizeWorkout({
+                workout: testWorkout({
+                    id: 'w',
+                }),
+                data: {
+                    exercises: [],
+                    workouts: [],
+                },
             }),
             [],
         );

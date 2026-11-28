@@ -1,7 +1,15 @@
 import {AboutPage, BottomNav, FeedbackPage, SlideDrawer} from '@bdemann/app-kit/ui';
 import {css, defineElement, html, listen, type HtmlInterpolation} from 'element-vir';
 import {appName, repoUrl} from '../../data/app-info.js';
-import {goTo, router, runIdOf, screenForRoute, type RunRoute, type Screen} from '../../router.js';
+import {
+    goTo,
+    router,
+    runIdOf,
+    screenForRoute,
+    workoutIdOf,
+    type RunRoute,
+    type Screen,
+} from '../../router.js';
 import {buildInfo} from '../build-info.js';
 import {diagnosticLog} from '../diagnostics.js';
 import {syncGpsRecorder} from '../gps-recorder.js';
@@ -19,6 +27,7 @@ import {RunDetailsScreen} from './run-details-screen.element.js';
 import {RunFormScreen} from './run-form-screen.element.js';
 import {SettingsScreen} from './settings-screen.element.js';
 import {TodayScreen} from './today-screen.element.js';
+import {WorkoutDetailsScreen} from './workout-details-screen.element.js';
 import {WorkoutScreen} from './workout-screen.element.js';
 
 diagnosticLog.captureErrors();
@@ -65,7 +74,7 @@ const navTabs = [
 
 /** Which tab a screen highlights. About and Feedback (from the menu) have none. */
 function tabIdForScreen(screen: Screen): string | undefined {
-    if (screen === 'workout' || screen === 'goals') {
+    if (screen === 'workout' || screen === 'workout-details' || screen === 'goals') {
         return 'workout';
     } else if (screen === 'history' || screen === 'run-details' || screen === 'edit') {
         return 'history';
@@ -98,6 +107,12 @@ function renderScreen(route: Readonly<RunRoute>): HtmlInterpolation {
                 mode: 'edit',
                 runId: runIdOf(route),
             })}></${RunFormScreen}>
+        `;
+    } else if (screen === 'workout-details') {
+        return html`
+            <${WorkoutDetailsScreen.assign({
+                workoutId: workoutIdOf(route) ?? '',
+            })}></${WorkoutDetailsScreen}>
         `;
     } else if (screen === 'workout') {
         return html`

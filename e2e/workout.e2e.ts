@@ -36,7 +36,7 @@ test('baseline test, then a training workout shows in recent workouts', async ({
         .click();
     await expect(page.getByText('Saved.')).toBeVisible();
     await expect(page.getByText(/Next time: Pushup 6 · Sit-up 6/)).toBeVisible();
-    await expect(page.getByText('5 sets')).toBeVisible();
+    await expect(page.getByText('50 reps · 5 exercises')).toBeVisible();
     await expect(
         page.getByText('Test', {
             exact: true,
@@ -73,7 +73,7 @@ test('baseline test, then a training workout shows in recent workouts', async ({
         })
         .click();
     await expect(page.getByText('Saved.')).toBeVisible();
-    await expect(page.getByText('2 sets')).toBeVisible();
+    await expect(page.getByText('12 reps · 1 exercise')).toBeVisible();
     await expect(
         page.getByText('Test', {
             exact: true,
@@ -82,16 +82,35 @@ test('baseline test, then a training workout shows in recent workouts', async ({
 
     await page
         .getByRole('button', {
-            name: /2 sets/,
+            name: /12 reps/,
+        })
+        .click();
+    await expect(page).toHaveURL(/\/workout\/.+/);
+    await expect(
+        page.getByRole('heading', {
+            name: 'Pushup',
+        }),
+    ).toBeVisible();
+    await expect(
+        page.getByText('6 · 6', {
+            exact: true,
+        }),
+    ).toBeVisible();
+    await expect(page.getByText('Total 12 reps')).toBeVisible();
+    await page
+        .getByRole('button', {
+            name: 'Delete workout',
         })
         .click();
     await expect(page.getByText('Delete this workout?')).toBeVisible();
     await page
         .getByRole('button', {
             name: 'Delete',
+            exact: true,
         })
         .click();
-    await expect(page.getByText('2 sets')).toBeHidden();
+    await expect(page).toHaveURL(/\/workout$/);
+    await expect(page.getByText('12 reps · 1 exercise')).toBeHidden();
 });
 
 test('cancel discards a workout in progress after a confirm step', async ({page}) => {

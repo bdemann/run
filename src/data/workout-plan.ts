@@ -1,6 +1,13 @@
 import {allExercises} from './exercises.js';
 import {type UserData} from './shapes.js';
-import {type ActiveWorkout, type Exercise, type Goal, type Workout} from './workout-shapes.js';
+import {
+    measures,
+    type ActiveWorkout,
+    type Exercise,
+    type Goal,
+    type Measure,
+    type Workout,
+} from './workout-shapes.js';
 import {suggestNext} from './workouts.js';
 
 type PlanData = Readonly<Pick<UserData, 'exercises' | 'workouts'>>;
@@ -133,4 +140,47 @@ export function goalsReachedBetween({
 /** Total sets in a workout. */
 export function totalSets(workout: Readonly<Pick<Workout, 'sets'>>): number {
     return workout.sets.length;
+}
+
+/** One exercise's part of a saved workout. */
+export type ExerciseSummary = {
+    exerciseId: string;
+    /** The exercise name, or the id when the exercise is unknown. */
+    name: string;
+    /** The first set's variation name, or '' when unknown. */
+    variationName: string;
+    /** 'reps' when the exercise is unknown. */
+    measure: Measure;
+    /** Each set's value, in order. */
+    values: number[];
+    total: number;
+};
+
+/** Groups a workout's sets by exercise, in order of first appearance. */
+export function summarizeWorkout({
+    workout,
+    data,
+}: Readonly<{workout: Readonly<Pick<Workout, 'sets'>>; data: PlanData}>): ExerciseSummary[] {
+    const exercises = allExercises(data);
+    const summaries: ExerciseSummary[] = [];
+    for (const set of workout.sets) {
+        let summary = summaries.find((candidate) => candidate.exerciseId === set.exerciseId);
+        if (!summary) {
+            const exercise = exercises.find((candidate) => candidate.id === set.exerciseId);
+            summary = {
+                exerciseId: set.exerciseId,
+                name: exercise?.name ?? set.exerciseId,
+                variationName:
+                    exercise?.variations.find((variation) => variation.id === set.variationId)
+                        ?.name ?? '',
+                measure: exercise?.measure ?? measures.reps,
+                values: [],
+                total: 0,
+            };
+            summaries.push(summary);
+        }
+        summary.values.push(set.value);
+        summary.total += set.value;
+    }
+    return summaries;
 }

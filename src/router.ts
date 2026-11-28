@@ -2,15 +2,21 @@ import {type FullSpaRoute, PathTree, SpaRouter} from 'spa-router-vir';
 
 /**
  * Pages: `/` (Today: weather, advice, start or the run in progress), `/finish` (finish the run in
- * progress), `/workout` (bodyweight workouts), `/goals`, `/log` (log a run after the fact), `/runs`
- * (history), `/runs/:id` (a run's details) and `/runs/:id/edit` (edit it), `/settings`, `/about`
- * and `/feedback`. Unknown paths are sanitized back to `/`.
+ * progress), `/workout` (bodyweight workouts) and `/workout/:id` (a workout's details), `/goals`,
+ * `/log` (log a run after the fact), `/runs` (history), `/runs/:id` (a run's details) and
+ * `/runs/:id/edit` (edit it), `/settings`, `/about` and `/feedback`. Unknown paths are sanitized
+ * back to `/`.
  */
 const pathTree = new PathTree({
     allowBare: true,
     children: {
         finish: {},
-        workout: {},
+        workout: {
+            allowBare: true,
+            children: {
+                ':id': {},
+            },
+        },
         goals: {},
         log: {},
         runs: {
@@ -48,6 +54,7 @@ export type Screen =
     | 'today'
     | 'finish'
     | 'workout'
+    | 'workout-details'
     | 'goals'
     | 'log'
     | 'history'
@@ -66,9 +73,10 @@ export function screenForRoute(route: Readonly<Pick<RunRoute, 'paths'>>): Screen
     ] = route.paths;
     if (first === 'runs') {
         return second ? (third === 'edit' ? 'edit' : 'run-details') : 'history';
+    } else if (first === 'workout') {
+        return second ? 'workout-details' : 'workout';
     } else if (
         first === 'finish' ||
-        first === 'workout' ||
         first === 'goals' ||
         first === 'log' ||
         first === 'settings' ||
@@ -84,6 +92,11 @@ export function screenForRoute(route: Readonly<Pick<RunRoute, 'paths'>>): Screen
 /** The run id of a `/runs/:id` or `/runs/:id/edit` route. */
 export function runIdOf(route: Readonly<Pick<RunRoute, 'paths'>>): string | undefined {
     return route.paths[0] === 'runs' ? route.paths[1] : undefined;
+}
+
+/** The workout id of a `/workout/:id` route. */
+export function workoutIdOf(route: Readonly<Pick<RunRoute, 'paths'>>): string | undefined {
+    return route.paths[0] === 'workout' ? route.paths[1] : undefined;
 }
 
 /** Goes to a page by its path parts, e.g. `goTo(['runs', id])`. */

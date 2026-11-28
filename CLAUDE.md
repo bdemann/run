@@ -89,7 +89,7 @@ so even `@bdemann/*` and electrovir releases younger than 5 days fail with `nota
     `retest-card.element.ts` is the retest prompt shared with the Workout screen. Pure helpers
     (`sortGoals`, `describeWeek`, `deadlinePassed`) are in `src/data/goal-plan.ts`; the Monday week
     and end-of-day helpers are in `src/ui/dates.ts`.
--   `src/router.ts`: spa-router-vir routes `/`, `/finish`, `/log`, `/workout`, `/goals`, `/runs`,
+-   `src/router.ts`: spa-router-vir routes `/`, `/finish`, `/log`, `/workout`, `/workout/:id` (workout details), `/goals`, `/runs`,
     `/runs/:id` (run details), `/runs/:id/edit`, `/settings`, `/about`, `/feedback`.
 -   **Routes** (`src/data/gps.ts`, `src/ui/gps-recorder.ts`): record a route once with screen-on GPS
     (Wake Lock + `watchPosition`), save it with a name, pick it on later runs for distance and pace.
