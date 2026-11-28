@@ -118,3 +118,78 @@ test('cancel discards a workout in progress after a confirm step', async ({page}
         }),
     ).toBeVisible();
 });
+
+test('a done set can be edited, marked not done, and marked done again', async ({page}) => {
+    await page.goto('/workout');
+    await page
+        .getByRole('button', {
+            name: 'Start baseline test',
+        })
+        .click();
+    const inputs = page.getByLabel('As many as you can with good form');
+    for (let index = 0; index < 5; index++) {
+        await inputs.nth(index).fill('10');
+    }
+    await page
+        .getByRole('button', {
+            name: 'Finish',
+        })
+        .click();
+    await page
+        .getByRole('button', {
+            name: 'Start workout',
+        })
+        .click();
+
+    const editor = page.locator('.set-editor');
+    const sets = page.getByRole('button', {
+        name: '6',
+        exact: true,
+    });
+    await sets.nth(0).click();
+    await expect(sets.nth(0)).toHaveAttribute('aria-pressed', 'true');
+    await expect(editor).toBeHidden();
+
+    await sets.nth(0).click();
+    await expect(editor).toBeVisible();
+    await expect(editor).toContainText('Set 1 · reps');
+    await expect(editor.locator('.set-editor-value')).toHaveText('6');
+
+    await page
+        .getByRole('button', {
+            name: 'More',
+        })
+        .click();
+    await expect(editor.locator('.set-editor-value')).toHaveText('7');
+    await expect(
+        page.getByRole('button', {
+            name: '7',
+            exact: true,
+        }),
+    ).toBeVisible();
+    await editor
+        .getByRole('button', {
+            name: 'OK',
+        })
+        .click();
+    await expect(editor).toBeHidden();
+
+    await page
+        .getByRole('button', {
+            name: '7',
+            exact: true,
+        })
+        .click();
+    await expect(editor).toBeVisible();
+    await editor
+        .getByRole('button', {
+            name: 'Not done',
+        })
+        .click();
+    await expect(editor).toBeHidden();
+    await expect(sets.nth(0)).toHaveAttribute('aria-pressed', 'false');
+
+    await sets.nth(0).click();
+    await expect(sets.nth(0)).toHaveAttribute('aria-pressed', 'true');
+    await expect(editor).toBeHidden();
+});
